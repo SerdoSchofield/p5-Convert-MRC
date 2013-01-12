@@ -38,6 +38,16 @@
 
 
 
+
+# ABSTRACT: CONVERT MRC TO TBX-BASIC
+package TBX::convert::MRC;
+use warnings;
+
+use Log::Message::Simple qw (:STD);
+
+our $VERSION = 3.4;
+# VERSION
+
 use open ':encoding(utf8)', ':std'; # incoming/outgoing data will be UTF-8
 
 # subroutine declarations
@@ -52,8 +62,6 @@ sub printRow;
 
 # reference variables
 
-# versioning
-our $version = "3.3";
 
 # How does the data category from a header row relate to the header?
 # (This is also a validity check.)
@@ -63,7 +71,7 @@ our %corresp = (
 	subjectField => 'Subject',
 );
 
-our $langCode = qr/[a-zA-Z]{2,3}(?:-[a-zA-Z]{2})?/; 
+our $langCode = qr/[a-zA-Z]{2,3}(?:-[a-zA-Z]{2})?/;
 	# ISO 639 language code, and optionally region code: fr, eng-US 
 	# case-insensitive; values are smashed to lowercase when parsed
 
@@ -142,285 +150,396 @@ $meta{$_} = 'termNote' foreach qw (grammaticalGender geographicalUsage partOfSpe
 
 our @origARGV = @ARGV;
 @ARGV = ('-') unless @ARGV; # if no filenames given, take std input
+#use batch() if called as a script
+__PACKAGE__->new->batch(@ARGV) unless caller;
 
-FILE: while (@ARGV) {
-	# find an appropriate name for output and warning files
-	$ARGV = shift @ARGV;
-	my $suffix = "";
-	$suffix-- while (-e "$ARGV$suffix.tbx" or -e "$ARGV$suffix.warnings"); # ensures unique names, no overwriting
+=head1 METHODS
 
-	# and open all three files
-	print STDERR "See $ARGV$suffix.tbx and $ARGV$suffix.warnings for output.\n";
-	open README, "<", $ARGV or die "Can't open $ARGV for reading: $!";
-	open WRITEME, ">", "$ARGV$suffix.tbx" or die "Can't open $ARGV$suffix.tbx for writing: $!";
-	open WARNME, ">", "$ARGV$suffix.warnings" or die "Can't open $ARGV$suffix.warnings for writing: $!";
+=head2 C<new>
 
-	# 'print' and 'warn' automatically route to the right filehandles
-	select WRITEME;
-	local $SIG{__WARN__} = sub {print WARNME $_[0];};
+Creates and returns a new instance of TBX::convert::MRC.
 
-	# informative header for the warnings file
-	warn "MRC2TBX converter version $version\n";
-	warn "Called with ", scalar @origARGV, " argument", @origARGV == 1 ? '' : 's' , ":\n";
-	warn "\t[$_]\n" foreach @origARGV;
-	warn "\n";
+=cut
 
-	# set up per-file status flags
-	my %header; # contains the header information
-	my $segment = 'header'; # header, body, back
-	local ($concept, $langSet, $term, $party); # what's open
-		# locals are accessible to subroutines
-	local $def = 0; # whether current langSet has a definition
-	local @unsortedTerm; # collect all rows for an ID
-	my @party; # collect all rows for a responsible party
-	my %responsible; # accumulate parties by type
-	my (@idsUsed, @linksMade); # track these 
-	my $started = 0; # flag for MRCTermTable line (start-of-processing)
-	my $aborted = 0; # flag for early end-of-processing
+sub new {
+  my ($class) = @_;
+  my $self = bless {}, $class;
+  # $self->_init;
+  $self;
+}
 
-	# process the file
-	LINE: while (<README>) {
-		# eliminate a (totally superfluous) byte-order mark
-		s/^(?:\xef\xbb\xbf|\x{feff})// if $. == 1;
-		next LINE unless /^=MRCtermTable/i .. 0; # start processing
-		$started = 1;
-		next LINE if /^=MRCtermTable/i; # but let that one go
-		next LINE if (/^\s*$/); # if it's only whitespace
-		my $row;
-		next LINE unless $row = parseRow($_);
-		# (if the row won't parse, parseRow() returns undef)
+=head2 C<tbx_fh>
 
-		# if in header, A row?
+Optional argument: string file path or GLOB
 
-		# A-row: build header
-		if ($segment eq 'header' && $row->{'ID'} eq 'A') {
-			buildHeader( parseRow($_), \%header) 
-				or warn "Could not interpret header line $., skipped.\n\n";
+Sets and/or returns the file handle used to print the converted TBX.
+
+=cut
+
+sub tbx_fh {
+	my ( $application, $fh ) = @_;
+	if ($fh) {
+		if(ref($fh) eq 'GLOB'){
+			$application->{tbx_fh} = $fh;
 		}
+		else{
+			open my $fh2, '>', $fh or die "Couldn't open $fh";
+			$application->{tbx_fh} = $fh2;
+		}
+	}
+	$application->{tbx_fh};
+}
 
-		# not A-row: print header, segment = body
-		if ($segment eq 'header' && $row->{'ID'} ne 'A') {
-			# better have enough for a header! 
-			unless (printHeader(\%header)) {
-				warn "TBX header could not be completed because a required A-row is missing or malformed.\n\n";
-				$aborted = 1; 
-				last LINE;
+=head2 C<log_fh>
+
+Optional argument: string file path or GLOB
+
+Sets and/or returns the file handle used to log any messages.
+
+=cut
+
+sub log_fh {
+	my ( $application, $fh ) = @_;
+	if ($fh) {
+		if(ref($fh) eq 'GLOB'){
+			$application->{log_fh} = $fh;
+		}
+		else{
+			open my $fh2, '>', $fh or die "Couldn't open $fh";
+			$application->{log_fh} = $fh2;
+		}
+	}
+	$application->{log_fh};
+}
+
+=head2 C<log>
+
+Argument: message to log
+
+Prints the given message to the log filehandle.
+=cut
+
+sub log {
+	my ($self, $message) = @_;
+	print {$self->{log_fh}} $message;
+}
+
+=head2 C<input_fh>
+
+Optional argument: string file path or GLOB
+
+Sets and/or returns the file handle used to read the MRC data from.
+
+=cut
+sub input_fh {
+	my ( $application, $fh ) = @_;
+	if ($fh) {
+		if(ref($fh) eq 'GLOB'){
+			$application->{input_fh} = $fh;
+		}
+		else{
+			open my $fh2, '<', $fh or die "Couldn't open $fh";
+			$application->{input_fh} = $fh2;
+		}
+	}
+	$application->{input_fh};
+}
+
+=head2 C<batch>
+Processes each of the input files, printing the converted TBX file to a file with the same name and the suffix ".tbx".
+Warnings are also printed to a file with the same name and the suffix ".warnings".
+
+=cut
+
+sub batch {
+	my ($self, @mrc_files) = @_;
+	FILE: for my $mrc (@mrc_files) {
+		# find an appropriate name for output and warning files
+		my $suffix = _get_suffix($mrc);
+
+		#set output, error and input files
+		my $outTBX = "$mrc$suffix.tbx";
+		my $outWarn = "$mrc$suffix.log";
+		print STDERR "See $outTBX and $outWarn for output.\n";
+		$self->input_fh($mrc);
+		$self->tbx_fh($outTBX);
+		
+		select $self->{tbx_fh};
+
+		# informative header for the log file
+		msg( "MRC2TBX converter version $VERSION");
+		msg("Called with " . scalar @origARGV . " argument" . ( @origARGV == 1 ? '' : 's' ) . 
+			":\n\t" . (join "\t", @origARGV));
+
+		# set up per-file status flags
+		my %header; # contains the header information
+		my $segment = 'header'; # header, body, back
+		local ($concept, $langSet, $term, $party); # what's open
+			# locals are accessible to subroutines
+		local $def = 0; # whether current langSet has a definition
+		local @unsortedTerm; # collect all rows for an ID
+		my @party; # collect all rows for a responsible party
+		my %responsible; # accumulate parties by type
+		my (@idsUsed, @linksMade); # track these 
+		my $started = 0; # flag for MRCTermTable line (start-of-processing)
+		my $aborted = 0; # flag for early end-of-processing
+
+		# process the file
+		LINE: while (readline($self->{input_fh})) {
+			# eliminate a (totally superfluous) byte-order mark
+			s/^(?:\xef\xbb\xbf|\x{feff})// if $. == 1;
+			next LINE unless /^=MRCtermTable/i .. 0; # start processing
+			$started = 1;
+			next LINE if /^=MRCtermTable/i; # but let that one go
+			next LINE if (/^\s*$/); # if it's only whitespace
+			my $row;
+			next LINE unless $row = parseRow($_);
+			# (if the row won't parse, parseRow() returns undef)
+
+			# if in header, A row?
+
+			# A-row: build header
+			if ($segment eq 'header' && $row->{'ID'} eq 'A') {
+				buildHeader( parseRow($_), \%header) 
+					or error "Could not interpret header line $., skipped.";
 			}
-			$segment = 'body';
-		}
 
-		# if in body, C row?
+			# not A-row: print header, segment = body
+			if ($segment eq 'header' && $row->{'ID'} ne 'A') {
+				# better have enough for a header! 
+				unless (printHeader(\%header)) {
+					error "TBX header could not be completed because a required A-row is missing or malformed.";
+					$aborted = 1; 
+					last LINE;
+				}
+				$segment = 'body';
+			}
 
-		# C-row: lots to do
-		if ($segment eq 'body' && exists $row->{'Concept'}) {
-			# catch a misordered-input problem
+			# if in body, C row?
 
-# The next 3 if tests are one action in principle.
-# Each depends on the preceding, and all depend on the
-# closeX() subs being no-ops if it's already closed,
-# and on the fact that nothing follows terms in langSet
-# or follows langSet in termEntry. Meddle not, blah blah.
+			# C-row: lots to do
+			if ($segment eq 'body' && exists $row->{'Concept'}) {
+				# catch a misordered-input problem
 
-			{ no warnings 'uninitialized'; 
-			# $concept, $langSet, $term might be undef
-			# if new concept, close old and open new
-			if ($row->{'Concept'} ne $concept) {
+	# The next 3 if tests are one action in principle.
+	# Each depends on the preceding, and all depend on the
+	# closeX() subs being no-ops if it's already closed,
+	# and on the fact that nothing follows terms in langSet
+	# or follows langSet in termEntry. Meddle not, blah blah.
+
+				{ no warnings 'uninitialized'; 
+				# $concept, $langSet, $term might be undef
+				# if new concept, close old and open new
+				if ($row->{'Concept'} ne $concept) {
+					closeTerm();
+					closeLangSet();
+					closeConcept();
+					# open concept
+					$concept = $row->{'Concept'};
+					print "<termEntry id=\"C$concept\">\n";
+					# (not row ID, which may go further)
+					push @idsUsed, "C$concept";
+				}
+				# if new langSet ...
+				if (exists $row->{'LangSet'} && 
+					$row->{'LangSet'} ne $langSet) {
+					closeTerm();
+					closeLangSet();
+					
+					# open langSet
+					$langSet = $row->{'LangSet'};
+					print "<langSet xml:lang=\"$langSet\">\n";
+				}
+				# if new term ...
+				if (exists $row->{'Term'} && 
+					$row->{'Term'} ne $term) {
+					closeTerm();
+					# open term
+					$term = $row->{'Term'};
+					undef @unsortedTerm; # redundant
+					push @idsUsed, "C$concept$langSet$term";
+				}
+				} # resume warnings on uninitialized values
+
+				# verify legal insertion
+				my $level; # determine where we are from row ID
+				if (defined $row->{'Term'}) {$level = 'Term'}
+				elsif (defined $row->{'LangSet'}) {
+					if (defined $term) { 
+						error "LangSet-level row out of order in line $., skipped.";
+						next LINE;
+					}
+					$level = 'LangSet';
+				}
+				elsif (defined $row->{'Concept'}) {
+					if (defined $langSet) {
+						error "Concept-level row out of order in line $., skipped.";
+						next LINE;
+					}
+					$level = 'Concept';
+				}
+				else {die "Can't find level in row $., stopped"}
+					# (can't happen)
+
+				# is the datcat allowed at the level of the ID?
+				unless ($legalIn{$level}{$row->{'DatCat'}}) {
+					error "Data category '$row->{'DatCat'}' not allowed at the $level level in line $., skipped.";
+					next LINE;
+				}
+
+				# set $def if definition (legal only at langSet level)
+				$def = 1 if ($row->{'DatCat'} eq 'definition');
+
+				# bookkeeping: record links made
+				push @linksMade, $row->{'Link'}->{'Value'} if (defined $row->{'Link'});
+
+				# print item, or push into pre-tig list, depending
+				if ($level eq 'Term') {
+					push @unsortedTerm, $row;
+				} else {
+					printRow($row);
+				}
+
+			} # end if (in body, reading C-row)
+
+			# not C-row: close any structures, segment = back
+			if ($segment eq 'body' && !exists $row->{'Concept'}) {
 				closeTerm();
 				closeLangSet();
 				closeConcept();
-				# open concept
-				$concept = $row->{'Concept'};
-				print "<termEntry id=\"C$concept\">\n";
-				# (not row ID, which may go further)
-				push @idsUsed, "C$concept";
+				print "</body>\n";
+				$segment = 'back';
+				print "<back>\n";
 			}
-			# if new langSet ...
-			if (exists $row->{'LangSet'} && 
-				$row->{'LangSet'} ne $langSet) {
-				closeTerm();
-				closeLangSet();
-				
-				# open langSet
-				$langSet = $row->{'LangSet'};
-				print "<langSet xml:lang=\"$langSet\">\n";
-			}
-			# if new term ...
-			if (exists $row->{'Term'} && 
-				$row->{'Term'} ne $term) {
-				closeTerm();
-				# open term
-				$term = $row->{'Term'};
-				undef @unsortedTerm; # redundant
-				push @idsUsed, "C$concept$langSet$term";
-			}
-			} # resume warnings on uninitialized values
 
-			# verify legal insertion
-			my $level; # determine where we are from row ID
-			if (defined $row->{'Term'}) {$level = 'Term'}
-			elsif (defined $row->{'LangSet'}) {
-				if (defined $term) { 
-					warn "LangSet-level row out of order in line $., skipped.\n\n";
-					next LINE;
+			# if in back, R row?
+			# R-row: separate parties, verify legality, stack it up
+			if ($segment eq 'back' && exists $row->{'Party'}) {
+				# have we changed parties?
+				if (defined $party && $row->{'Party'} ne $party) {
+					# change parties
+					my $type;
+					# what kind of party is the old one?
+					my $topRow = shift @party;
+					if ($topRow->{'DatCat'} eq 'type') {
+						$type = $topRow->{'Value'};
+					} else {
+						unshift @party, $topRow;
+						$type = 'unknown';
+					}
+					# file its info under its type and clean it out
+					push @{$responsible{$type}}, [@party];
+					undef @party;
 				}
-				$level = 'LangSet';
-			}
-			elsif (defined $row->{'Concept'}) {
-				if (defined $langSet) {
-					warn "Concept-level row out of order in line $., skipped.\n\n";
-					next LINE;
+				# no? OK, add it to the current party.
+				$party = $row->{'Party'}; # the party don't stop!
+				# article says the first row must be type, but we can sort:
+				if ($row->{'DatCat'} eq 'type') {
+					unshift @party, $row;
+				} else {
+					push @party, $row;
 				}
-				$level = 'Concept';
-			}
-			else {die "Can't find level in row $., stopped"}
-				# (can't happen)
+			} # end if (in back and reading R-row)
 
-			# is the datcat allowed at the level of the ID?
-			unless ($legalIn{$level}{$row->{'DatCat'}}) {
-				warn "Data category '$row->{'DatCat'}' not allowed at the $level level in line $., skipped.\n\n";
-				next LINE;
-			}
-
-			# set $def if definition (legal only at langSet level)
-			$def = 1 if ($row->{'DatCat'} eq 'definition');
-
-			# bookkeeping: record links made
-			push @linksMade, $row->{'Link'}->{'Value'} if (defined $row->{'Link'});
-
-			# print item, or push into pre-tig list, depending
-			if ($level eq 'Term') {
-				push @unsortedTerm, $row;
-			} else {
-				printRow($row);
+			# not R-row: warn file is misordered, last line
+			# this code only runs if the A C R order is broken
+			if ($segment eq 'back' && !exists $row->{'Party'}) {
+				error "Don't know what to do with line $., processing stopped. Your file may be misordered. The line reads:\n$_";
+				$aborted = 1;
+				last LINE;
 			}
 
-		} # end if (in body, reading C-row)
+		} # end LINE: while (<$self->input_fh>)
 
-		# not C-row: close any structures, segment = back
-		if ($segment eq 'body' && !exists $row->{'Concept'}) {
+		# finish up
+
+		# if in body, close structures, body
+		if ($segment eq 'body') {
 			closeTerm();
 			closeLangSet();
 			closeConcept();
 			print "</body>\n";
-			$segment = 'back';
-			print "<back>\n";
 		}
 
-		# if in back, R row?
-		# R-row: separate parties, verify legality, stack it up
-		if ($segment eq 'back' && exists $row->{'Party'}) {
-			# have we changed parties?
-			if (defined $party && $row->{'Party'} ne $party) {
-				# change parties
-				my $type;
-				# what kind of party is the old one?
-				my $topRow = shift @party;
-				if ($topRow->{'DatCat'} eq 'type') {
-					$type = $topRow->{'Value'};
-				} else {
-					unshift @party, $topRow;
-					$type = 'unknown';
-				}
-				# file its info under its type and clean it out
-				push @{$responsible{$type}}, [@party];
-				undef @party;
-			}
-			# no? OK, add it to the current party.
-			$party = $row->{'Party'}; # the party don't stop!
-			# article says the first row must be type, but we can sort:
-			if ($row->{'DatCat'} eq 'type') {
-				unshift @party, $row;
+		# if in back, sort and print parties, close back
+		if ($segment eq 'back') {
+			# file the last party under its type
+			my $type;
+			my $topRow = shift @party;
+			if ($topRow->{'DatCat'} eq 'type') {
+				$type = $topRow->{'Value'};
 			} else {
-				push @party, $row;
+				unshift @party, $topRow;
+				$type = 'unknown';
 			}
-		} # end if (in back and reading R-row)
-
-		# not R-row: warn file is misordered, last line
-		# this code only runs if the A C R order is broken
-		if ($segment eq 'back' && !exists $row->{'Party'}) {
-			warn "Don't know what to do with line $., processing stopped. Your file may be misordered. The line reads:\n";
-			warn "$_\n";
-			$aborted = 1;
-			last LINE;
+			push @{$responsible{$type}}, [@party];
+			# print a refObjectList for each type of party,
+			# within which each arrayref gets noted and printRow()ed.
+			if (exists $responsible{'person'}) {
+				print "<refObjectList type=\"respPerson\">\n";
+				push @idsUsed, $_->[0]->{'ID'} foreach @{$responsible{'person'}};
+				printRow($_) foreach @{$responsible{'person'}};
+				print "</refObjectList>\n";
+			}
+			if (exists $responsible{'organization'}) {
+				print "<refObjectList type=\"respOrg\">\n";
+				push @idsUsed, $_->[0]->{'ID'} foreach @{$responsible{'organization'}};
+				printRow($_) foreach @{$responsible{'organization'}};
+				print "</refObjectList>\n";
+			}
+			if (exists $responsible{'unknown'}) {
+				error "At least one of your responsible parties has no type (person, organization, etc.) and has been provisionally printed as a respParty. To conform to TBX-Basic, you must list each party as either a person or an organization.";
+				print "<refObjectList type=\"respParty\">\n";
+				push @idsUsed, $_->[0]->{'ID'} foreach @{$responsible{'unknown'}};
+				printRow($_) foreach @{$responsible{'unknown'}};
+				print "</refObjectList>\n";
+			}
+			print "</back>\n";
 		}
 
-	} # end LINE: while (<README>)
+		# closing formalities
 
-	# finish up
-
-	# if in body, close structures, body
-	if ($segment eq 'body') {
-		closeTerm();
-		closeLangSet();
-		closeConcept();
-		print "</body>\n";
-	}
-
-	# if in back, sort and print parties, close back
-	if ($segment eq 'back') {
-		# file the last party under its type
-		my $type;
-		my $topRow = shift @party;
-		if ($topRow->{'DatCat'} eq 'type') {
-			$type = $topRow->{'Value'};
-		} else {
-			unshift @party, $topRow;
-			$type = 'unknown';
+		if (not $started) {
+			print STDERR "$ARGV does not contain a line beginning with =MRCTermTable. You must include such a line to switch on the TBX converter -- all preceding material is ignored.";
+			error "$ARGV does not contain a line beginning with =MRCTermTable. You must include such a line to switch on the TBX converter -- all preceding material is ignored.";
+			close $self->tbx_fh;
+			close $self->input_fh;
+			next FILE;
 		}
-		push @{$responsible{$type}}, [@party];
-		# print a refObjectList for each type of party,
-		# within which each arrayref gets noted and printRow()ed.
-		if (exists $responsible{'person'}) {
-			print "<refObjectList type=\"respPerson\">\n";
-			push @idsUsed, $_->[0]->{'ID'} foreach @{$responsible{'person'}};
-			printRow($_) foreach @{$responsible{'person'}};
-			print "</refObjectList>\n";
+
+		if ($aborted) {
+			print STDERR "See $ARGV.warnings -- processing could not be completed.\n";
+			close $self->tbx_fh;
+			close $self->input_fh;
+			next FILE;
 		}
-		if (exists $responsible{'organization'}) {
-			print "<refObjectList type=\"respOrg\">\n";
-			push @idsUsed, $_->[0]->{'ID'} foreach @{$responsible{'organization'}};
-			printRow($_) foreach @{$responsible{'organization'}};
-			print "</refObjectList>\n";
-		}
-		if (exists $responsible{'unknown'}) {
-			warn "At least one of your responsible parties has no type (person, organization, etc.) and has been provisionally printed as a respParty. To conform to TBX-Basic, you must list each party as either a person or an organization.\n\n";
-			print "<refObjectList type=\"respParty\">\n";
-			push @idsUsed, $_->[0]->{'ID'} foreach @{$responsible{'unknown'}};
-			printRow($_) foreach @{$responsible{'unknown'}};
-			print "</refObjectList>\n";
-		}
-		print "</back>\n";
-	}
 
-	# closing formalities
+		print "</text>\n</martif>\n";
+		msg ("File includes links to: \n\t" . (join "\n\t", @linksMade))
+			if @linksMade;
+			
+		msg "File includes IDs: \n\t" . (join "\n\t", @idsUsed)
+			if @idsUsed;
 
-	if (not $started) {
-		print STDERR "$ARGV does not contain a line beginning with =MRCTermTable. You must include such a line to switch on the TBX converter -- all preceding material is ignored.\n";
-		warn "$ARGV does not contain a line beginning with =MRCTermTable. You must include such a line to switch on the TBX converter -- all preceding material is ignored.\n";
-		close README; close WRITEME; close WARNME;
-		next FILE;
-	}
-
-	if ($aborted) {
-		print STDERR "See $ARGV.warnings -- processing could not be completed.\n";
-		close README; close WRITEME; close WARNME;
-		next FILE;
-	}
-
-	print "</text>\n</martif>\n";
-	warn "File includes links to: \n" if @linksMade;
-	warn "\t$_\n" foreach sort (@linksMade);
-	warn "\n" if (@linksMade and @idsUsed);
-	warn "File includes IDs: \n" if @idsUsed;
-	warn "\t$_\n" foreach sort (@idsUsed);
-
-	print STDERR "Finished processing $ARGV.\n";
-	close README; close WRITEME; close WARNME;
+		#print all messages to the log file
+		open my $file, '>', "$outWarn" or die 'buh!';
+		print $file Log::Message::Simple->stack_as_string();
+		Log::Message::Simple->flush();
 		# next open would close them implicitly but not reset $.
+		close $file;
+		
+		print STDERR "Finished processing $mrc.\n";
+		
+	} # end FILE: while (@mrc_files)
+} # end batch()
 
-
-
-} # end FILE: while (@ARGV)
+# return a file suffix to ensure nothing is overwritten
+sub _get_suffix {
+	my ($file_name) = @_;
+	my $suffix = "";
+	$suffix-- while (-e "$file_name$suffix.tbx" or -e "$file_name$suffix.warnings"); 
+	return $suffix;
+}
 
 sub closeTerm {
 	if (defined $term) {
@@ -626,7 +745,7 @@ REQUIRED1
 
 # print termbase-wide subjects, if such there be
 	warn "Termbase-wide subject fields are recorded in the <titleStmt> element of the TBX header.\n\n"
-		if @{$info{'Subject'}};
+		if (exists $info{'Subject'} and scalar @{ $info{'Subject'} } );
 	my $sbj;
 	print <<SUBJECT while $sbj = shift @{$info{'Subject'}};
 <note>entire termbase concerns subject: $sbj</note>
@@ -635,7 +754,7 @@ SUBJECT
 	print <<REQUIRED2;
 </titleStmt>
 <sourceDesc>
-<p>generated by mrc2tbx version $version</p>
+<p>generated by TBX::convert::MRC version $VERSION</p>
 </sourceDesc>
 REQUIRED2
 	while (my $src = shift @{$info{'Source'}}) {
