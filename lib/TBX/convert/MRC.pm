@@ -35,12 +35,24 @@
 
 # TEST DATA HERE
 
-
-
-
-
 # ABSTRACT: CONVERT MRC TO TBX-BASIC
+
+
 package TBX::convert::MRC;
+
+=head1 SYNOPSIS
+
+	use strict;
+	use warnings;
+
+	my $converter = TBX::convert::MRC->new;
+	$converter->input_fh('/path/to/MRC/file.mrc');
+	$converter->tbx_fh('/path/to/output/file.tbx');
+	$converter->log_fh('/path/to/log/file.log');
+	$converter->convert;
+
+=cut
+
 use warnings;
 
 use Log::Message::Simple qw (:STD);
@@ -50,18 +62,7 @@ our $VERSION = 3.4;
 
 use open ':encoding(utf8)', ':std'; # incoming/outgoing data will be UTF-8
 
-# subroutine declarations
-sub parseRow;
-sub buildHeader;
-sub printHeader;
-sub closeTerm; # do nothing if no term level is open
-sub closeLangSet; # nothing if no lang level is open
-sub closeConcept; # nothing if no concept level is open
-sub sortRefs; # structure a term's worth of data rows for printing
-sub printRow;
-
 # reference variables
-
 
 # How does the data category from a header row relate to the header?
 # (This is also a validity check.)
@@ -144,8 +145,6 @@ $meta{$_} = 'admin' foreach qw (customerSubset projectSubset);
 $meta{$_} = 'descrip' foreach qw (definition subjectField context);
 $meta{$_} = 'termNote' foreach qw (grammaticalGender geographicalUsage partOfSpeech termLocation termType administrativeStatus);
 
-# global status flags
-
 # main code
 
 our @origARGV = @ARGV;
@@ -164,8 +163,15 @@ Creates and returns a new instance of TBX::convert::MRC.
 sub new {
   my ($class) = @_;
   my $self = bless {}, $class;
-  # $self->_init;
+  $self->_init;
   $self;
+}
+
+sub _init {
+	my ($self) = @_;
+	$self->input_fh(\*STDIN);
+	$self->tbx_fh(\*STDOUT);
+	$self->log_fh(\*STDERR);
 }
 
 =head2 C<tbx_fh>
@@ -337,37 +343,37 @@ sub convert {
 # or follows langSet in termEntry. Meddle not, blah blah.
 
 			{ no warnings 'uninitialized'; 
-			# $concept, $langSet, $term might be undef
-			# if new concept, close old and open new
-			if ($row->{'Concept'} ne $concept) {
-				closeTerm();
-				closeLangSet();
-				closeConcept();
-				# open concept
-				$concept = $row->{'Concept'};
-				print "<termEntry id=\"C$concept\">\n";
-				# (not row ID, which may go further)
-				push @idsUsed, "C$concept";
-			}
-			# if new langSet ...
-			if (exists $row->{'LangSet'} && 
-				$row->{'LangSet'} ne $langSet) {
-				closeTerm();
-				closeLangSet();
-				
-				# open langSet
-				$langSet = $row->{'LangSet'};
-				print "<langSet xml:lang=\"$langSet\">\n";
-			}
-			# if new term ...
-			if (exists $row->{'Term'} && 
-				$row->{'Term'} ne $term) {
-				closeTerm();
-				# open term
-				$term = $row->{'Term'};
-				undef @unsortedTerm; # redundant
-				push @idsUsed, "C$concept$langSet$term";
-			}
+				# $concept, $langSet, $term might be undef
+				# if new concept, close old and open new
+				if ($row->{'Concept'} ne $concept) {
+					closeTerm();
+					closeLangSet();
+					closeConcept();
+					# open concept
+					$concept = $row->{'Concept'};
+					print "<termEntry id=\"C$concept\">\n";
+					# (not row ID, which may go further)
+					push @idsUsed, "C$concept";
+				}
+				# if new langSet ...
+				if (exists $row->{'LangSet'} && 
+					$row->{'LangSet'} ne $langSet) {
+					closeTerm();
+					closeLangSet();
+					
+					# open langSet
+					$langSet = $row->{'LangSet'};
+					print "<langSet xml:lang=\"$langSet\">\n";
+				}
+				# if new term ...
+				if (exists $row->{'Term'} && 
+					$row->{'Term'} ne $term) {
+					closeTerm();
+					# open term
+					$term = $row->{'Term'};
+					undef @unsortedTerm; # redundant
+					push @idsUsed, "C$concept$langSet$term";
+				}
 			} # resume warnings on uninitialized values
 
 			# verify legal insertion
@@ -552,6 +558,7 @@ sub _get_suffix {
 	return $suffix;
 }
 
+# do nothing if no term level is open
 sub closeTerm {
 	if (defined $term) {
 		my $id = $unsortedTerm[0]->{'ID'};
@@ -566,6 +573,7 @@ sub closeTerm {
 	}
 }
 
+# nothing if no lang level is open
 sub closeLangSet {
 	if (defined $langSet) {
 		print "</langSet>\n";
@@ -574,6 +582,7 @@ sub closeLangSet {
 	}
 }
 
+# nothing if no concept level is open
 sub closeConcept {
 	if (defined $concept) {
 		print "</termEntry>\n";
@@ -795,6 +804,7 @@ REQUIRED3
 REQUIRED3
 }
 
+# structure a term's worth of data rows for printing
 sub sortRefs {
 	my (@termGrp, @auxInfo, $term, $pos, $context, $ID);
 	$ID = $_[0]->{'ID'};
