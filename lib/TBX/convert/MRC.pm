@@ -57,93 +57,13 @@ use warnings;
 
 use Log::Message::Simple qw (:STD);
 
+#import global constants used in processing
+use TBX::convert::MRC::Variables;
+
 our $VERSION = 3.4;
 # VERSION
 
 use open ':encoding(utf8)', ':std'; # incoming/outgoing data will be UTF-8
-
-# reference variables
-
-# How does the data category from a header row relate to the header?
-# (This is also a validity check.)
-our %corresp = (
-	workingLanguage => 'Language',
-	sourceDesc => 'Source',
-	subjectField => 'Subject',
-);
-
-our $langCode = qr/[a-zA-Z]{2,3}(?:-[a-zA-Z]{2})?/;
-	# ISO 639 language code, and optionally region code: fr, eng-US 
-	# case-insensitive; values are smashed to lowercase when parsed
-
-# What is the proper capitalization for each data category/picklist item?
-# A hash from a case-smashed version to the correct version, which will be
-# used to recognize and fix user input.
-our %correctCaps;
-$correctCaps{'DatCat'}{lc($_)} = $_ foreach qw (
-	sourceDesc workingLanguage subjectField xGraphic definition 
-	term partOfSpeech administrativeStatus context geographicalUsage
-	grammaticalGender termLocation termType note source
-	crossReference externalCrossReference customerSubset projectSubset
-	transactionType fn org title role email uid tel adr type
-);
-$correctCaps{'partOfSpeech'}{lc($_)} = $_ foreach qw (
-	noun verb adjective adverb properNoun other
-);
-$correctCaps{'administrativeStatus'}{lc($_)} = $_ foreach qw (
-	preferredTerm-admn-sts admittedTerm-admn-sts
-	deprecatedTerm-admn-sts supersededTerm-admn-sts
-);
-$correctCaps{'grammaticalGender'}{lc($_)} = $_ foreach qw (
-	masculine feminine neuter other
-);
-$correctCaps{'termLocation'}{lc($_)} = $_ foreach qw (
-	menuItem dialogBox groupBox textBox comboBox comboBoxElement
-	checkBox tab pushButton radioButton spinBox progressBar slider
-	informativeMessage interactiveMessage toolTip tableText
-	userDefinedType
-);
-$correctCaps{'termType'}{lc($_)} = $_ foreach qw (
-	fullForm acronym abbreviation shortForm variant phrase
-);
-$correctCaps{'transactionType'}{lc($_)} = $_ foreach qw (
-	origination modification
-);
-$correctCaps{'type'}{lc($_)} = $_ foreach qw (
-	person organization
-);
-
-# Which additional fields are allowed on which data categories?
-our %allowed; 
-$allowed{$_}{'Note'} = 1 foreach qw ();
-$allowed{$_}{'Source'} = 1 foreach qw (
-	definition subjectField context
-);
-$allowed{$_}{'Link'} = 1 foreach qw (
-	transactionType crossReference externalCrossReference xGraphic
-);
-$allowed{'transactionType'}{'Date'} = 
-	$allowed{'transactionType'}{'Responsibility'} =
-	1;
-$allowed{$_}{'FieldLang'} = 1 foreach qw (Source Note Responsibility);
-
-# which data categories are allowed at which level?
-our %legalIn;
-$legalIn{'Concept'}{$_} = 1 foreach qw (transactionType crossReference externalCrossReference customerSubset projectSubset xGraphic subjectField note source);
-$legalIn{'LangSet'}{$_} = 1 foreach qw (transactionType crossReference externalCrossReference customerSubset projectSubset definition note source);
-$legalIn{'Term'}{$_} = 1 foreach qw (transactionType crossReference externalCrossReference customerSubset projectSubset context grammaticalGender geographicalUsage partOfSpeech termLocation termType administrativeStatus note source term);
-$legalIn{'Party'}{$_} = 1 foreach qw (email title role org uid tel adr fn);
-
-# what part of the term structure does each data category go in?
-our %position;
-%position = map { $_ => 'termGrp' } qw (administrativeStatus geographicalUsage grammaticalGender partOfSpeech termLocation termType);
-%position = (%position, map { $_ => 'auxInfo' } qw (context customerSubset projectSubset crossReference note source transactionType externalCrossReference xGraphic));
-
-# which TBX meta data category does each data category print as?
-our %meta;
-$meta{$_} = 'admin' foreach qw (customerSubset projectSubset);
-$meta{$_} = 'descrip' foreach qw (definition subjectField context);
-$meta{$_} = 'termNote' foreach qw (grammaticalGender geographicalUsage partOfSpeech termLocation termType administrativeStatus);
 
 # main code
 

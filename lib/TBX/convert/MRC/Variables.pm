@@ -15,17 +15,17 @@ our @EXPORT = qw(
 );
 
 # reference variables
-our %corresp = get_corresp;
-our $langCode = get_lang_code;
-our %correctCaps = get_correct_caps;
-our %allowed = get_allowed;
-our %legalIn = get_legal_in;
-our %position = get_position;
-our %meta = get_meta;
+our %corresp = _get_corresp();
+our $langCode = _get_lang_code();
+our %correctCaps = _get_correct_caps();
+our %allowed = _get_allowed();
+our %legalIn = _get_legal_in();
+our %position = _get_position();
+our %meta = _get_meta();
 
 # How does the data category from a header row relate to the header?
 # (This is also a validity check.)
-sub get_corresp {
+sub _get_corresp {
 	my %corresp = (
 		workingLanguage => 'Language',
 		sourceDesc => 'Source',
@@ -36,14 +36,14 @@ sub get_corresp {
 
 # ISO 639 language code, and optionally region code: fr, eng-US 
 # case-insensitive; values are smashed to lowercase when parsed
-sub get_lang_code {
+sub _get_lang_code {
 	return qr/[a-zA-Z]{2,3}(?:-[a-zA-Z]{2})?/;
 }
 
 # What is the proper capitalization for each data category/picklist item?
 # A hash from a case-smashed version to the correct version, which will be
 # used to recognize and fix user input.
-sub get_correct_caps {
+sub _get_correct_caps {
 	my %correct_caps;
 	$correct_caps{'DatCat'}{lc($_)} = $_ foreach qw (
 		sourceDesc workingLanguage subjectField xGraphic definition 
@@ -82,7 +82,7 @@ sub get_correct_caps {
 
 
 # Which additional fields are allowed on which data categories?
-sub get_allowed {
+sub _get_allowed {
 	my %allowed;
 	$allowed{$_}{'Note'} = 1 foreach qw ();
 	$allowed{$_}{'Source'} = 1 foreach qw (
@@ -99,7 +99,7 @@ sub get_allowed {
 }
 
 # which data categories are allowed at which level?
-sub get_legal_in {
+sub _get_legal_in {
 	$legalIn{'Concept'}{$_} = 1 
 		foreach qw (
 		transactionType crossReference externalCrossReference
@@ -123,7 +123,7 @@ sub get_legal_in {
 }
 
 # what part of the term structure does each data category go in?
-sub get_position {
+sub _get_position {
 	my %position = map { $_ => 'termGrp' } qw (
 		administrativeStatus geographicalUsage grammaticalGender 
 		partOfSpeech termLocation termType
@@ -136,10 +136,12 @@ sub get_position {
 }
 
 # which TBX meta data category does each data category print as?
-sub get_meta {
+sub _get_meta {
 	my %meta;
 	$meta{$_} = 'admin' foreach qw (customerSubset projectSubset);
 	$meta{$_} = 'descrip' foreach qw (definition subjectField context);
 	$meta{$_} = 'termNote' foreach qw (grammaticalGender geographicalUsage partOfSpeech termLocation termType administrativeStatus);
 	return %meta;
 }
+
+1;
