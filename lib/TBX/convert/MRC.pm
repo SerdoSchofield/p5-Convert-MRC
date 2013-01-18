@@ -10,7 +10,8 @@
 
 
 package TBX::convert::MRC;
-
+use strict;
+use warnings;
 
 =head1 NAME
 
@@ -66,8 +67,6 @@ concepts containing no langSet or langSets containing no term, but these
 are also invalid. 
 
 =cut
-
-use warnings;
 
 use Log::Message::Simple qw (:STD);
 
@@ -242,10 +241,16 @@ sub convert {
 	# set up per-file status flags
 	my %header; # contains the header information
 	my $segment = 'header'; # header, body, back
-	local ($concept, $langSet, $term, $party); # what's open
-		# locals are accessible to subroutines
-	local $def = 0; # whether current langSet has a definition
-	local @unsortedTerm; # collect all rows for an ID
+	
+	# what's open; need to be accessible in all methods
+	$self->{concept} = undef;
+	$self->{langSet} = undef;
+	$self->{term} = undef;
+	$self->{party} = undef;
+	$self->{langSetDefined} = 0;
+	#array containing all rows for an ID
+	$self->{unsortedTerm} = undef;
+	
 	my @party; # collect all rows for a responsible party
 	my %responsible; # accumulate parties by type
 	my (@idsUsed, @linksMade); # track these 
@@ -296,36 +301,36 @@ sub convert {
 # or follows langSet in termEntry. Meddle not, blah blah.
 
 			{ no warnings 'uninitialized'; 
-				# $concept, $langSet, $term might be undef
+				# concept, langSet, term might be undef
 				# if new concept, close old and open new
-				if ($row->{'Concept'} ne $concept) {
+				if ($row->{'Concept'} ne $self->{concept}) {
 					$self->_closeTerm();
 					$self->_closeLangSet();
 					$self->_closeConcept();
 					# open concept
-					$concept = $row->{'Concept'};
-					print "<termEntry id=\"C$concept\">\n";
+					$self->{concept} = $row->{'Concept'};
+					print '<termEntry id="C' . $self->{concept} . "\">\n";
 					# (not row ID, which may go further)
-					push @idsUsed, "C$concept";
+					push @idsUsed, 'C' . $self->{concept};
 				}
 				# if new langSet ...
 				if (exists $row->{'LangSet'} && 
-					$row->{'LangSet'} ne $langSet) {
+					$row->{'LangSet'} ne $self->{langSet}) {
 					$self->_closeTerm();
 					$self->_closeLangSet();
 					
 					# open langSet
-					$langSet = $row->{'LangSet'};
-					print "<langSet xml:lang=\"$langSet\">\n";
+					$self->{langSet} = $row->{'LangSet'};
+					print '<langSet xml:lang="' . $self->{langSet} . "\">\n";
 				}
 				# if new term ...
 				if (exists $row->{'Term'} && 
-					$row->{'Term'} ne $term) {
+					$row->{'Term'} ne $self->{term}) {
 					$self->_closeTerm();
 					# open term
-					$term = $row->{'Term'};
-					undef @unsortedTerm; # redundant
-					push @idsUsed, "C$concept$langSet$term";
+					$self->{term} = $row->{'Term'};
+					undef $self->{unsortedTerm}; # redundant
+					push @idsUsed, 'C' . $self->{concept} . $self->{langSet} . $self->{term};
 				}
 			} # resume warnings on uninitialized values
 
@@ -333,14 +338,14 @@ sub convert {
 			my $level; # determine where we are from row ID
 			if (defined $row->{'Term'}) {$level = 'Term'}
 			elsif (defined $row->{'LangSet'}) {
-				if (defined $term) { 
+				if (defined $self->{term}) { 
 					error "LangSet-level row out of order in line $., skipped.";
 					next;
 				}
 				$level = 'LangSet';
 			}
 			elsif (defined $row->{'Concept'}) {
-				if (defined $langSet) {
+				if (defined $self->{langSet}) {
 					error "Concept-level row out of order in line $., skipped.";
 					next;
 				}
@@ -355,15 +360,15 @@ sub convert {
 				next;
 			}
 
-			# set $def if definition (legal only at langSet level)
-			$def = 1 if ($row->{'DatCat'} eq 'definition');
+			# set langSetDefined if definition (legal only at langSet level)
+			$self->{langSetDefined} = 1 if ($row->{'DatCat'} eq 'definition');
 
 			# bookkeeping: record links made
 			push @linksMade, $row->{'Link'}->{'Value'} if (defined $row->{'Link'});
 
 			# print item, or push into pre-tig list, depending
 			if ($level eq 'Term') {
-				push @unsortedTerm, $row;
+				push @{ $self->{unsortedTerm} }, $row;
 			} else {
 				$self->_printRow($row);
 			}
@@ -384,7 +389,7 @@ sub convert {
 		# R-row: separate parties, verify legality, stack it up
 		if ($segment eq 'back' && exists $row->{'Party'}) {
 			# have we changed parties?
-			if (defined $party && $row->{'Party'} ne $party) {
+			if (defined $self->{party} && $row->{'Party'} ne $self->{party}) {
 				# change parties
 				my $type;
 				# what kind of party is the old one?
@@ -400,7 +405,7 @@ sub convert {
 				undef @party;
 			}
 			# no? OK, add it to the current party.
-			$party = $row->{'Party'}; # the party don't stop!
+			$self->{party} = $row->{'Party'}; # the party don't stop!
 			# article says the first row must be type, but we can sort:
 			if ($row->{'DatCat'} eq 'type') {
 				unshift @party, $row;
@@ -506,35 +511,35 @@ sub convert {
 # do nothing if no term level is open
 sub _closeTerm {
 	my ($self) = @_;
-	if (defined $term) {
-		my $id = $unsortedTerm[0]->{'ID'};
-		my $tig = $self->_sortRefs(@unsortedTerm);
+	if (defined $self->{term}) {
+		my $id = ${ $self->{unsortedTerm} }[0]->{'ID'};
+		my $tig = $self->_sortRefs(@{ $self->{unsortedTerm} });
 		my $posContext = pop @$tig;
-		unless ($posContext || $def) {
+		unless ($posContext || $self->{langSetDefined}) {
 			error "Term $id is lacking an element necessary for TBX-Basic.\n\tTo make it valid for human use only, add one of:\n\t\ta definition (at the language level)\n\t\tan example of use in context (at the term level).\n\tTo make it valid for human or machine processing, add its part of speech (at the term level).\nSee line @{[$. - 1]}.\n\n";
 		}
 		$self->_printRow($tig);
-		undef $term;
-		undef @unsortedTerm;
+		undef $self->{term};
+		undef $self->{unsortedTerm};
 	}
 }
 
 # nothing if no lang level is open
 sub _closeLangSet {
 	my ($self) = @_;
-	if (defined $langSet) {
+	if (defined $self->{langSet}) {
 		print "</langSet>\n";
-		undef $langSet;
-		undef $def;
+		undef $self->{langSet};
+		undef $self->{langSetDefined};
 	}
 }
 
 # nothing if no concept level is open
 sub _closeConcept {
 	my ($self) = @_;
-	if (defined $concept) {
+	if (defined $self->{concept}) {
 		print "</termEntry>\n";
-		undef $concept;
+		undef $self->{concept};
 	}
 }
 
