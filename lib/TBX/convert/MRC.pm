@@ -550,6 +550,22 @@ sub convert {
     select $select;
 }
 
+=head1 SEE ALSO
+
+=over 2
+
+=item * The homepage for this program is located L<here|http://tbxconvert.gevterm.net/mrc2tbx/index.html>. You can use it online
+(one file at a time), and can also view a tutorial about MRC files.
+
+=item * A more in-depth look at MRC can be found L<in this article|http://www.ttt.org/tbx/AKMtradumaArticle-publishedVersion.pdf>.
+
+=item * General TBX iformation can be found L<here|http://www.ttt.org/tbx>.
+
+=back
+
+=cut
+
+
 # do nothing if no term level is open
 sub _closeTerm {
     my ($self) = @_;
