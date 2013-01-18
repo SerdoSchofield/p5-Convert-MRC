@@ -6,12 +6,28 @@
 
 # TEST DATA HERE
 
-# ABSTRACT: CONVERT MRC TO TBX-BASIC
-
 
 package TBX::convert::MRC;
 use strict;
 use warnings;
+
+use Log::Message::Simple qw (:STD);
+
+#import global constants used in processing
+use TBX::convert::MRC::Variables;
+
+our $VERSION = 3.4;
+# ABSTRACT: CONVERT MRC TO TBX-BASIC
+# VERSION
+
+use open ':encoding(utf8)', ':std'; # incoming/outgoing data will be UTF-8
+
+# main code
+
+our @origARGV = @ARGV;
+@ARGV = ('-') unless @ARGV; # if no filenames given, take std input
+#use batch() if called as a script
+__PACKAGE__->new->batch(@ARGV) unless caller;
 
 =head1 NAME
 
@@ -65,25 +81,6 @@ contain a term itself. The converter detects these and warns about them,
 but there is no way it could fix them. It does not detect or warn about
 concepts containing no langSet or langSets containing no term, but these
 are also invalid. 
-
-=cut
-
-use Log::Message::Simple qw (:STD);
-
-#import global constants used in processing
-use TBX::convert::MRC::Variables;
-
-our $VERSION = 3.4;
-# VERSION
-
-use open ':encoding(utf8)', ':std'; # incoming/outgoing data will be UTF-8
-
-# main code
-
-our @origARGV = @ARGV;
-@ARGV = ('-') unless @ARGV; # if no filenames given, take std input
-#use batch() if called as a script
-__PACKAGE__->new->batch(@ARGV) unless caller;
 
 =head1 METHODS
 

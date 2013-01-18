@@ -1,0 +1,8 @@
+#!/usr/bin/perl
+package mrc2tbx;
+# ABSTRACT: CONVERT INPUT MRC FILES TO TBX-BASIC
+# VERSION
+use strict;
+use warnings;
+use TBX::convert::MRC;
+TBX::convert::MRC->new->batch(@ARGV);
