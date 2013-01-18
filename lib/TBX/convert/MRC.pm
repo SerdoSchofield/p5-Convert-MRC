@@ -1,35 +1,6 @@
 # MRC to TBX converter
 # written June-Nov 2008 by Nathan E. Rasmussen
-
-# The MRC format is fully described in an article by Alan K. Melby, 
-# to appear in Tradumatica. At an approximation, it is a file of tab-
-# separated rows, each consisting of an ID, a data category, and a value
-# to be stored for that category in the object with the given ID. The file
-# should be sorted on its first column. If it is not, the converter may 
-# skip rows (if they are at too high a level) or end processing early
-# (if the order of A-rows, C-rows, and R-rows is broken).
-
-# This translator receives a file or list of files in this format and 
-# emits TBX-Basic, a standard format for terminology interchange. 
-# Incorrect or unusable input is skipped, with one exception, and the 
-# problem is noted in a log file. The outputs generally have the same 
-# filename as the inputs, and a suffix of .tbx and .warnings, but a number
-# may be added to the filename to ensure the output filenames are unique. 
-
-# The exception noted is this: If the user documents a party responsible
-# for some change in the termbase, but does not state whether that party
-# is a person or an organization, the party will be included in the TBX
-# as a "respParty". This designation does not conform to the TBX-Basic 
-# standard and will need to be changed (to "respPerson" or "respOrg")
-# before the file will validate. This is one of the circumstances in which
-# the converter will output invalid TBX-Basic. 
-
-# The other circumstance is that a file might not contain a definition,
-# a part of speech, or a context sentence for some term, or might not
-# contain a term itself. The converter detects these and warns about them,
-# but there is no way it could fix them. It does not detect or warn about
-# concepts containing no langSet or langSets containing no term, but these
-# are also invalid. 
+# Modified 2013 by Nathan G. Glenn
 
 # Example input data follows: 
 
@@ -39,6 +10,11 @@
 
 
 package TBX::convert::MRC;
+
+
+=head1 NAME
+
+TBX::convert::MRC- Perl extension for converting MRC files into TBX-Basic.
 
 =head1 SYNOPSIS
 
@@ -50,6 +26,44 @@ package TBX::convert::MRC;
 	$converter->tbx_fh('/path/to/output/file.tbx');
 	$converter->log_fh('/path/to/log/file.log');
 	$converter->convert;
+
+=head1 DESCRIPTION
+
+=head2 MRC
+
+The MRC format is fully described in an article by Alan K. Melby which
+appeared in 
+L<Tradumatica|http://www.ttt.org/tbx/AKMtradumaArticle-publishedVersion.pdf>. 
+At an approximation, it is a file of tab-separated rows, each consisting
+of an ID, a data category, and a value
+to be stored for that category in the object with the given ID. The file
+should be sorted on its first column. If it is not, the converter may 
+skip rows (if they are at too high a level) or end processing early
+(if the order of A-rows, C-rows, and R-rows is broken).
+
+=head2 CONVERSION TO TBX-BASIC
+
+This translator receives a file or list of files in this format and 
+emits TBX-Basic, a standard format for terminology interchange. 
+Incorrect or unusable input is skipped, with one exception, and the 
+problem is noted in a log file. The outputs generally have the same 
+filename as the inputs, and a suffix of .tbx and .warnings, but a number
+may be added to the filename to ensure the output filenames are unique. 
+
+The exception noted is this: If the user documents a party responsible
+for some change in the termbase, but does not state whether that party
+is a person or an organization, the party will be included in the TBX
+as a "respParty". This designation does not conform to the TBX-Basic 
+standard and will need to be changed (to "respPerson" or "respOrg")
+before the file will validate. This is one of the circumstances in which
+the converter will output invalid TBX-Basic. 
+
+The other circumstance is that a file might not contain a definition,
+a part of speech, or a context sentence for some term, or might not
+contain a term itself. The converter detects these and warns about them,
+but there is no way it could fix them. It does not detect or warn about
+concepts containing no langSet or langSets containing no term, but these
+are also invalid. 
 
 =cut
 
@@ -138,14 +152,8 @@ sub log_fh {
 	$application->{log_fh};
 }
 
-=head2 C<log>
-
-Argument: message to log
-
-Prints the given message to the log filehandle.
-=cut
-
-sub log {
+#prints the given message to the current log file handle.
+sub _log {
 	my ($self, $message) = @_;
 	print {$self->{log_fh}} $message;
 }
@@ -157,6 +165,7 @@ Optional argument: string file path or GLOB
 Sets and/or returns the file handle used to read the MRC data from.
 
 =cut
+
 sub input_fh {
 	my ( $application, $fh ) = @_;
 	if ($fh) {
@@ -173,7 +182,7 @@ sub input_fh {
 
 =head2 C<batch>
 Processes each of the input files, printing the converted TBX file to a file with the same name and the suffix ".tbx".
-Warnings are also printed to a file with the same name and the suffix ".warnings".
+Warnings are also printed to a file with the same name and the suffix ".log".
 
 =cut
 
@@ -196,6 +205,30 @@ sub batch {
 		print STDERR "Finished processing $mrc.\n";
 	}
 }
+
+# return a file suffix to ensure nothing is overwritten
+sub _get_suffix {
+	my ($file_name) = @_;
+	my $suffix = "";
+	$suffix-- while (-e "$file_name$suffix.tbx" or -e "$file_name$suffix.warnings"); 
+	return $suffix;
+}
+
+=head2 C<convert>
+
+Converts the input MRC data into TBX-Basic:
+
+=over 2
+
+=item * Reading MRC data from L</input_fh>
+
+=item * Printing TBX-Basic data to L</tbx_fh>
+
+=item * Logging messages to L</log_fh>
+
+=back
+
+=cut
 
 sub convert {
 	my ($self) = @_;
@@ -228,21 +261,21 @@ sub convert {
 		next if /^=MRCtermTable/i; # but let that one go
 		next if (/^\s*$/); # if it's only whitespace
 		my $row;
-		next unless $row = parseRow($_);
-		# (if the row won't parse, parseRow() returns undef)
+		next unless $row = $self->_parseRow($_);
+		# (if the row won't parse, _parseRow() returns undef)
 
 		# if in header, A row?
 
 		# A-row: build header
 		if ($segment eq 'header' && $row->{'ID'} eq 'A') {
-			buildHeader( parseRow($_), \%header) 
+			$self->_buildHeader( $self->_parseRow($_), \%header) 
 				or error "Could not interpret header line $., skipped.";
 		}
 
 		# not A-row: print header, segment = body
 		if ($segment eq 'header' && $row->{'ID'} ne 'A') {
 			# better have enough for a header! 
-			unless (printHeader(\%header)) {
+			unless ($self->_printHeader(\%header)) {
 				error "TBX header could not be completed because a required A-row is missing or malformed.";
 				$aborted = 1; 
 				last;
@@ -266,9 +299,9 @@ sub convert {
 				# $concept, $langSet, $term might be undef
 				# if new concept, close old and open new
 				if ($row->{'Concept'} ne $concept) {
-					closeTerm();
-					closeLangSet();
-					closeConcept();
+					$self->_closeTerm();
+					$self->_closeLangSet();
+					$self->_closeConcept();
 					# open concept
 					$concept = $row->{'Concept'};
 					print "<termEntry id=\"C$concept\">\n";
@@ -278,8 +311,8 @@ sub convert {
 				# if new langSet ...
 				if (exists $row->{'LangSet'} && 
 					$row->{'LangSet'} ne $langSet) {
-					closeTerm();
-					closeLangSet();
+					$self->_closeTerm();
+					$self->_closeLangSet();
 					
 					# open langSet
 					$langSet = $row->{'LangSet'};
@@ -288,7 +321,7 @@ sub convert {
 				# if new term ...
 				if (exists $row->{'Term'} && 
 					$row->{'Term'} ne $term) {
-					closeTerm();
+					$self->_closeTerm();
 					# open term
 					$term = $row->{'Term'};
 					undef @unsortedTerm; # redundant
@@ -332,16 +365,16 @@ sub convert {
 			if ($level eq 'Term') {
 				push @unsortedTerm, $row;
 			} else {
-				printRow($row);
+				$self->_printRow($row);
 			}
 
 		} # end if (in body, reading C-row)
 
 		# not C-row: close any structures, segment = back
 		if ($segment eq 'body' && !exists $row->{'Concept'}) {
-			closeTerm();
-			closeLangSet();
-			closeConcept();
+			$self->_closeTerm();
+			$self->_closeLangSet();
+			$self->_closeConcept();
 			print "</body>\n";
 			$segment = 'back';
 			print "<back>\n";
@@ -390,9 +423,9 @@ sub convert {
 
 	# if in body, close structures, body
 	if ($segment eq 'body') {
-		closeTerm();
-		closeLangSet();
-		closeConcept();
+		$self->_closeTerm();
+		$self->_closeLangSet();
+		$self->_closeConcept();
 		print "</body>\n";
 	}
 
@@ -409,24 +442,24 @@ sub convert {
 		}
 		push @{$responsible{$type}}, [@party];
 		# print a refObjectList for each type of party,
-		# within which each arrayref gets noted and printRow()ed.
+		# within which each arrayref gets noted and _printRow()ed.
 		if (exists $responsible{'person'}) {
 			print "<refObjectList type=\"respPerson\">\n";
 			push @idsUsed, $_->[0]->{'ID'} foreach @{$responsible{'person'}};
-			printRow($_) foreach @{$responsible{'person'}};
+			$self->_printRow($_) foreach @{$responsible{'person'}};
 			print "</refObjectList>\n";
 		}
 		if (exists $responsible{'organization'}) {
 			print "<refObjectList type=\"respOrg\">\n";
 			push @idsUsed, $_->[0]->{'ID'} foreach @{$responsible{'organization'}};
-			printRow($_) foreach @{$responsible{'organization'}};
+			$self->_printRow($_) foreach @{$responsible{'organization'}};
 			print "</refObjectList>\n";
 		}
 		if (exists $responsible{'unknown'}) {
 			error "At least one of your responsible parties has no type (person, organization, etc.) and has been provisionally printed as a respParty. To conform to TBX-Basic, you must list each party as either a person or an organization.";
 			print "<refObjectList type=\"respParty\">\n";
 			push @idsUsed, $_->[0]->{'ID'} foreach @{$responsible{'unknown'}};
-			printRow($_) foreach @{$responsible{'unknown'}};
+			$self->_printRow($_) foreach @{$responsible{'unknown'}};
 			print "</refObjectList>\n";
 		}
 		print "</back>\n";
@@ -460,7 +493,7 @@ sub convert {
 		if @idsUsed;
 
 	#print all messages to the object's log
-	$self->log( Log::Message::Simple->stack_as_string() );
+	$self->_log( Log::Message::Simple->stack_as_string() );
 	Log::Message::Simple->flush();
 	
 	# TODO: is this necessary? also look for tbx_fh and input_fh
@@ -470,31 +503,25 @@ sub convert {
 	select $select;
 }
 
-# return a file suffix to ensure nothing is overwritten
-sub _get_suffix {
-	my ($file_name) = @_;
-	my $suffix = "";
-	$suffix-- while (-e "$file_name$suffix.tbx" or -e "$file_name$suffix.warnings"); 
-	return $suffix;
-}
-
 # do nothing if no term level is open
-sub closeTerm {
+sub _closeTerm {
+	my ($self) = @_;
 	if (defined $term) {
 		my $id = $unsortedTerm[0]->{'ID'};
-		my $tig = sortRefs(@unsortedTerm);
+		my $tig = $self->_sortRefs(@unsortedTerm);
 		my $posContext = pop @$tig;
 		unless ($posContext || $def) {
-			warn "Term $id is lacking an element necessary for TBX-Basic.\n\tTo make it valid for human use only, add one of:\n\t\ta definition (at the language level)\n\t\tan example of use in context (at the term level).\n\tTo make it valid for human or machine processing, add its part of speech (at the term level).\nSee line @{[$. - 1]}.\n\n";
+			error "Term $id is lacking an element necessary for TBX-Basic.\n\tTo make it valid for human use only, add one of:\n\t\ta definition (at the language level)\n\t\tan example of use in context (at the term level).\n\tTo make it valid for human or machine processing, add its part of speech (at the term level).\nSee line @{[$. - 1]}.\n\n";
 		}
-		printRow($tig);
+		$self->_printRow($tig);
 		undef $term;
 		undef @unsortedTerm;
 	}
 }
 
 # nothing if no lang level is open
-sub closeLangSet {
+sub _closeLangSet {
+	my ($self) = @_;
 	if (defined $langSet) {
 		print "</langSet>\n";
 		undef $langSet;
@@ -503,22 +530,24 @@ sub closeLangSet {
 }
 
 # nothing if no concept level is open
-sub closeConcept {
+sub _closeConcept {
+	my ($self) = @_;
 	if (defined $concept) {
 		print "</termEntry>\n";
 		undef $concept;
 	}
 }
 
-sub parseRow {
-	s/\s*$//; # super-chomp: cut off any trailing whitespace at all
+sub _parseRow {
+	my ($self, $row_text) = @_;
+	$row_text =~ s/\s*$//; # super-chomp: cut off any trailing whitespace at all
 	# later, split will eliminate between-field whitespace
 	# and the keyword and langtag parsers will eliminate other space
 	# outside of values
-	return if /^$/; # skip lines that are all whitespace
+	return if $row_text =~ /^$/; # skip lines that are all whitespace
 
 	# fields are delimited by at least one tab and possibly spaces
-	my @field = split / *(?:\t *)+/;
+	my @field = split / *(?:\t *)+/, $row_text;
 
 	# grab the three mandatory fields
 	my %row;
@@ -528,14 +557,14 @@ sub parseRow {
 
 	# verify essential completeness
 	unless ($row{'ID'} && $row{'DatCat'} && $row{'Value'}) {
-		warn "Incomplete row in line $., skipped.\n\n";
+		error "Incomplete row in line $., skipped.\n\n";
 		return;
 	}
 
 	# verify well-formed ID and extract its semantics
 	if ($row{'ID'} =~ /^[Cc] *(\d{3}) *($langCode)? *(\d*)$/) {
 		if ($3 && !$2) {
-			warn "Bad ID '$row{'ID'}' (no language section) in line $., skipped.\n\n";
+			error "Bad ID '$row{'ID'}' (no language section) in line $., skipped.\n\n";
 			return;
 		}
 		$row{'Concept'} = $1;
@@ -552,7 +581,7 @@ sub parseRow {
 		# this is a header line and okey-dokey
 		$row{'ID'} = 'A';
 	} else {
-		warn "Bad ID '$row{'ID'}' (format not recognized) in line $., skipped.\n\n";
+		error "Bad ID '$row{'ID'}' (format not recognized) in line $., skipped.\n\n";
 		return;
 	}
 
@@ -560,11 +589,11 @@ sub parseRow {
 	if (my $correct = $correctCaps{'DatCat'}{lc($row{'DatCat'})}) {
 		# the datcat is recognized
 		unless ($row{'DatCat'} eq $correct) {
-			warn "Correcting '$row{'DatCat'}' to '$correct' in line $..\n\n";
+			error "Correcting '$row{'DatCat'}' to '$correct' in line $..\n\n";
 			$row{'DatCat'} = $correct;
 		}
 	} else {
-		warn "Unknown data category '$row{'DatCat'}' in line $., skipped.\n\n";
+		error "Unknown data category '$row{'DatCat'}' in line $., skipped.\n\n";
 		return;
 	}
 
@@ -579,11 +608,11 @@ sub parseRow {
 		if (my $correct = $correctCaps{'termLocation'}{ lc($row{'Value'}) }) {
 			# the value is a recognized termLocation
 			unless ($row{'Value'} eq $correct) {
-				warn "Correcting '$row{'Value'}' to '$correct' in line $..\n\n";
+				error "Correcting '$row{'Value'}' to '$correct' in line $..\n\n";
 				$row{'Value'} = $correct;
 			}
 		} else {
-			warn "Unfamiliar termLocation '$row{'Value'}' in line $.. If this is a location in a user interface, consult the suggested values in the TBX spec.\n\n";
+			error "Unfamiliar termLocation '$row{'Value'}' in line $.. If this is a location in a user interface, consult the suggested values in the TBX spec.\n\n";
 			# but DON'T return undef, because this should not
 			# lead to skipping the row, unlike other picklists
 		}
@@ -593,11 +622,11 @@ sub parseRow {
 		# if one exists
 		if (my $correct = $caps{lc($row{'Value'})}) {
 			unless ($row{'Value'} eq $correct) {
-				warn "Correcting '$row{'Value'}' to '$correct' in line $..\n\n";
+				error "Correcting '$row{'Value'}' to '$correct' in line $..\n\n";
 				$row{'Value'} = $correct;
 			}
 		} else {
-			warn "'$row{'Value'}' not a valid $row{'DatCat'} in line $., skipped. See picklist for valid values.\n\n";
+			error "'$row{'Value'}' not a valid $row{'DatCat'} in line $., skipped. See picklist for valid values.\n\n";
 			return;
 		}
 	} # else it's not a correctible datcat, so let it be
@@ -611,20 +640,20 @@ sub parseRow {
 			$row{$keyword}{'Value'} = $3;
 			$row{$keyword}{'FieldLang'} = " xml:lang=\"\L$2\"" if $2;
 		} else {
-			warn "Can't parse additional field '$_' in line $., ignored.\n\n";
+			error "Can't parse additional field '$_' in line $., ignored.\n\n";
 		}
 		# check if a FieldLang makes sense
 		if ($row{$keyword}{'FieldLang'} && !$allowed{$keyword}{'FieldLang'}) {
-			warn "Language tag makes no sense with keyword '$keyword' in line $., ignored.\n\n";
+			error "Language tag makes no sense with keyword '$keyword' in line $., ignored.\n\n";
 			delete $row{$keyword}{'FieldLang'};
 		}
 		# check if this datcat can have this keyword
 		# this bit might be better done in the controller?
 		# heh. Too late now.
 		unless ($allowed{$row{'DatCat'}}{$keyword}) {
-			warn "Data category $row{'DatCat'} does not allow keyword '$keyword', ignored in line $..\n\n";
+			error "Data category $row{'DatCat'} does not allow keyword '$keyword', ignored in line $..\n\n";
 			if ($keyword eq 'Source' or $keyword eq 'Note') {
-				warn "You may attach a source or note to an entire term entry (or a language section or concept entry) by placing it on its own line with the appropriate ID, like this: \n\t$row{ 'ID' }\t\l$keyword\t$row{ $keyword }{ 'Value' }\n\n";
+				error "You may attach a source or note to an entire term entry (or a language section or concept entry) by placing it on its own line with the appropriate ID, like this: \n\t$row{ 'ID' }\t\l$keyword\t$row{ $keyword }{ 'Value' }\n\n";
 			}
 			delete $row{$keyword};
 		}
@@ -634,49 +663,50 @@ sub parseRow {
 	if ($row{'Date'}) {
 		if ($row{'Date'}{'Value'} =~ /^(\d{4})-(\d{2})-(\d{2})$/) {
 			if ($1 eq '0000' || $2 eq '00' || $3 eq '00') {
-				warn "Consider correcting: Zeroes in date '$row{'Date'}{'Value'}', line $..\n\n";
+				error "Consider correcting: Zeroes in date '$row{'Date'}{'Value'}', line $..\n\n";
 			} elsif ($2 < 13 && $3 < 13) {
-				warn "Consider double-checking: Month and day are ambiguous in '$row{'Date'}{'Value'}', line $..\n\n";
+				error "Consider double-checking: Month and day are ambiguous in '$row{'Date'}{'Value'}', line $..\n\n";
 			} elsif ($2 > 12) {
-				warn "Consider correcting: Month $2 is nonsense in line $..\n\n";
+				error "Consider correcting: Month $2 is nonsense in line $..\n\n";
 			}
 		} else {
-			warn "Date '$row{'Date'}{'Value'}' not in ISO format (yyyy-mm-dd) in line $., ignored.\n\n";
+			error "Date '$row{'Date'}{'Value'}' not in ISO format (yyyy-mm-dd) in line $., ignored.\n\n";
 			delete $row{'Date'};
 		}
 	}
 
 	# check for Link where it's needed 
 	if ($row{'DatCat'} eq 'transactionType') {
-		warn "Consider adding information: No responsible party linked in line $..\n\n" unless $row{'Link'};
+		error "Consider adding information: No responsible party linked in line $..\n\n" unless $row{'Link'};
 	} elsif ($row{'DatCat'} =~ /^(?:crossReference|externalCrossReference|xGraphic)$/ && !$row{'Link'}) {
-		warn "$row{'DatCat'} without Link in line $., skipped.\n\n";
+		error "$row{'DatCat'} without Link in line $., skipped.\n\n";
 		return;
 	}
 
 	return \%row;
 }
 
-sub buildHeader {
-	my ($srcRef, $destRef) = @_;
+sub _buildHeader {
+	my ($self, $srcRef, $destRef) = @_;
 	my $destKey;
 	return unless ($destKey = $corresp{ $srcRef->{ 'DatCat' }});
 		# a validity check, not just a pointless translation
 	if ($destKey eq 'Language' and defined $destRef->{'Language'}) {
-		warn "Duplicate workingLanguage ignored in line $..\n\n"; 
+		error "Duplicate workingLanguage ignored in line $..\n\n"; 
 		return;
 	}
 	push @{$destRef->{$destKey}}, $srcRef->{'Value'};
 	return 1;
 }
 
-sub printHeader {
-	my %info = %{shift;}; # that's a copy, but the hash is small
-	return unless (defined $info{'Language'} && defined $info{'Source'});
+sub _printHeader {
+	my ($self, $info) = @_;
+	# my $info = %{shift}; # that's a copy, but the hash is small
+	return unless (defined $info->{'Language'} && defined $info->{'Source'});
 	print <<REQUIRED1;
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
-<martif type="TBX-Basic-V1" xml:lang="$info{'Language'}[0]">
+<martif type="TBX-Basic-V1" xml:lang="$$info{'Language'}[0]">
 <martifHeader>
 <fileDesc>
 <titleStmt>
@@ -684,10 +714,10 @@ sub printHeader {
 REQUIRED1
 
 # print termbase-wide subjects, if such there be
-	warn "Termbase-wide subject fields are recorded in the <titleStmt> element of the TBX header.\n\n"
-		if (exists $info{'Subject'} and scalar @{ $info{'Subject'} } );
+	error "Termbase-wide subject fields are recorded in the <titleStmt> element of the TBX header.\n\n"
+		if (exists $info->{'Subject'} and scalar @{ $info->{'Subject'} } );
 	my $sbj;
-	print <<SUBJECT while $sbj = shift @{$info{'Subject'}};
+	print <<SUBJECT while $sbj = shift @{$info->{'Subject'}};
 <note>entire termbase concerns subject: $sbj</note>
 SUBJECT
 
@@ -697,7 +727,7 @@ SUBJECT
 <p>generated by TBX::convert::MRC version $VERSION</p>
 </sourceDesc>
 REQUIRED2
-	while (my $src = shift @{$info{'Source'}}) {
+	while (my $src = shift @{$info->{'Source'}}) {
 		print <<SOURCE;
 <sourceDesc>
 <p>$src</p>
@@ -712,7 +742,7 @@ SOURCE
 REQUIRED3
 
 #	my $sbj;
-#	print <<SUBJECT while $sbj = shift @{$info{'Subject'}};
+#	print <<SUBJECT while $sbj = shift @{$info->{'Subject'}};
 #<p type="subjectField">$sbj</p>
 #SUBJECT
 
@@ -725,10 +755,11 @@ REQUIRED3
 }
 
 # structure a term's worth of data rows for printing
-sub sortRefs {
+sub _sortRefs {
+	my ($self, @rows) = @_;
 	my (@termGrp, @auxInfo, $term, $pos, $context, $ID);
 	$ID = $_[0]->{'ID'};
-	while (my $row = shift) {
+	for my $row(@rows) {
 		my $datCat = $row->{'DatCat'};
 		if ($datCat eq 'term') {
 			unshift @termGrp, $row; # stick it on the front
@@ -742,21 +773,21 @@ sub sortRefs {
 				$context = 1 if $datCat eq 'context';
 			}
 		} else {
-			warn "Data category '$datCat' is not allowed at the term level.\n\n"; # other code should prevent this anyway
+			error "Data category '$datCat' is not allowed at the term level.\n\n"; # other code should prevent this anyway
 		}
 	}
-	warn "There is no term row for '$ID', although other data categories describe such a term. See line @{[$. - 1]}.\n\n"
+	error "There is no term row for '$ID', although other data categories describe such a term. See line @{[$. - 1]}.\n\n"
 		unless $term;
-	warn "Term $ID lacks a partOfSpeech row. This TBX file may not be machine processed. See line @{[$. - 1]}.\n\n"
+	error "Term $ID lacks a partOfSpeech row. This TBX file may not be machine processed. See line @{[$. - 1]}.\n\n"
 		unless $pos;
 	unshift @auxInfo, \@termGrp;
 	push @auxInfo, ($pos || $context); # 1 or undef
 	return \@auxInfo;
 }
 
-sub printRow {
+sub _printRow {
+	my ($self, $item) = @_;
 	no warnings 'uninitialized'; # for undefined language attributes
-	my $item = shift;
 	if (ref $item eq 'HASH') { # printing a single item
 		# print as appropriate
 		my $datCat;
@@ -813,7 +844,7 @@ sub printRow {
 
 		else { # everything else is easy
 			my $meta;
-			$meta = $meta{$datCat} or die "printRow() can't print a $datCat "; # shouldn't happen
+			$meta = $meta{$datCat} or die "_printRow() can't print a $datCat "; # shouldn't happen
 			print "<${meta}Grp>\n";
 			print "\t<$meta type=\"$datCat\"$item->{'RowLang'}>$item->{'Value'}</$meta>\n";
 			print "\t<note$item->{'Note'}->{'FieldLang'}>$item->{'Note'}->{'Value'}</note>\n" if $item->{'Note'};
@@ -825,7 +856,7 @@ sub printRow {
 		# if first item isn't arrayref, it's a resp-party
 		if (ref $item->[0] ne 'ARRAY') { 
 			print "<refObject id=\"$item->[0]->{'ID'}\">\n";
-			printRow($_) foreach @$item;
+			$self->_printRow($_) foreach @$item;
 			print "</refObject>\n";
 		} else {
 		# then it's a tig
@@ -841,13 +872,13 @@ sub printRow {
 			}
 			print "<tig id=\"$id\">\n";
 			# <termGrp> if this were an ntig
-			printRow($_) foreach @$termGrp;
+			$self->_printRow($_) foreach @$termGrp;
 			# </termGrp>
-			printRow($_) foreach @$item;
+			$self->_printRow($_) foreach @$item;
 			print "</tig>\n";
 		}
 	} else {
-		die "printRow() called incorrectly, stopped";
+		die "_printRow() called incorrectly, stopped";
 	}
 }
 
