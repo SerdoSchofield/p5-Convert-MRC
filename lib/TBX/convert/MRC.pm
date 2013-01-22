@@ -9,6 +9,8 @@
 package TBX::convert::MRC;
 use strict;
 use warnings;
+use Data::Dumper;
+use Carp;
 
 use Log::Message::Simple qw (:STD);
 
@@ -149,6 +151,12 @@ sub log_fh {
     $application->{log_fh};
 }
 
+#same thing as Log::Message::Simple::error, but verbose is always off.
+sub _error {
+	my ($msg) = @_;
+	error $msg, 0;
+}
+
 #prints the given message to the current log file handle.
 sub _log {
     my ( $self, $message ) = @_;
@@ -209,7 +217,7 @@ sub _get_suffix {
     my ($file_name) = @_;
     my $suffix = "";
     $suffix--
-      while ( -e "$file_name$suffix.tbx" or -e "$file_name$suffix.warnings" );
+      while ( -e "$file_name$suffix.tbx" or -e "$file_name$suffix.log" );
     return $suffix;
 }
 
@@ -281,10 +289,12 @@ sub convert {
 
         # if in header, A row?
 
+		# print STDOUT $segment;
+		# print STDOUT Dumper $row;
         # A-row: build header
         if ( $segment eq 'header' && $row->{'ID'} eq 'A' ) {
             $self->_buildHeader( $self->_parseRow($_), \%header )
-              or error "Could not interpret header line $., skipped.";
+              or _error "Could not interpret header line $., skipped.";
         }
 
         # not A-row: print header, segment = body
@@ -292,7 +302,7 @@ sub convert {
 
             # better have enough for a header!
             unless ( $self->_printHeader( \%header ) ) {
-                error
+                _error
 "TBX header could not be completed because a required A-row is missing or malformed.";
                 $aborted = 1;
                 last;
@@ -362,14 +372,14 @@ sub convert {
             if ( defined $row->{'Term'} ) { $level = 'Term' }
             elsif ( defined $row->{'LangSet'} ) {
                 if ( defined $self->{term} ) {
-                    error "LangSet-level row out of order in line $., skipped.";
+                    _error "LangSet-level row out of order in line $., skipped.";
                     next;
                 }
                 $level = 'LangSet';
             }
             elsif ( defined $row->{'Concept'} ) {
                 if ( defined $self->{langSet} ) {
-                    error "Concept-level row out of order in line $., skipped.";
+                    _error "Concept-level row out of order in line $., skipped.";
                     next;
                 }
                 $level = 'Concept';
@@ -380,7 +390,7 @@ sub convert {
 
             # is the datcat allowed at the level of the ID?
             unless ( $legalIn{$level}{ $row->{'DatCat'} } ) {
-                error
+                _error
 "Data category '$row->{'DatCat'}' not allowed at the $level level in line $., skipped.";
                 next;
             }
@@ -451,8 +461,8 @@ sub convert {
         # not R-row: warn file is misordered, last line
         # this code only runs if the A C R order is broken
         if ( $segment eq 'back' && !exists $row->{'Party'} ) {
-            error
-"Don't know what to do with line $., processing stopped. Your file may be misordered. The line reads:\n$_";
+            _error
+"Don't know what to do with line $., processing stopped. Your file may be misordered. The line reads:\n";
             $aborted = 1;
             last;
         }
@@ -500,7 +510,7 @@ sub convert {
             print "</refObjectList>\n";
         }
         if ( exists $responsible{'unknown'} ) {
-            error
+            _error
 "At least one of your responsible parties has no type (person, organization, etc.) and has been provisionally printed as a respParty. To conform to TBX-Basic, you must list each party as either a person or an organization.";
             print "<refObjectList type=\"respParty\">\n";
             push @idsUsed, $_->[0]->{'ID'} foreach @{ $responsible{'unknown'} };
@@ -516,20 +526,18 @@ sub convert {
         my $err =
 "$ARGV does not contain a line beginning with =MRCTermTable. You must include such a line to switch on the TBX converter -- all preceding material is ignored.";
 
-        print STDERR $err;
-        error $err;
+        carp $err;
+        _error $err;
 
-        close $self->tbx_fh;
-        close $self->input_fh;
-        return;
+        $self->_finish_processing($select);
+		return;
     }
 
     if ($aborted) {
-        print STDERR
-          "See $ARGV.warnings -- processing could not be completed.\n";
-        close $self->tbx_fh;
-        close $self->input_fh;
-        return;
+        carp
+          "See log -- processing could not be completed.\n";
+        $self->_finish_processing($select);
+		return;
     }
 
     print "</text>\n</martif>\n";
@@ -539,15 +547,25 @@ sub convert {
     msg "File includes IDs:\n\t" . ( join "\n\t", @idsUsed )
       if @idsUsed;
 
+    # TODO: is this necessary? also look for tbx_fh and input_fh
+    # next open would close implicitly but not reset $.
+	$self->_finish_processing($select);
+	return;
+}
+
+sub _finish_processing {
+	my ($self, $select) = @_;
+	
     #print all messages to the object's log
     $self->_log( Log::Message::Simple->stack_as_string() );
     Log::Message::Simple->flush();
-
-    # TODO: is this necessary? also look for tbx_fh and input_fh
-    # next open would close implicitly but not reset $.
-    # close $self->log_fh;
-
+	
+	#then close 
     select $select;
+	# close $self->tbx_fh;
+	# close $self->input_fh;
+    # close $self->log_fh;
+	
 }
 
 =head1 SEE ALSO
@@ -574,8 +592,8 @@ sub _closeTerm {
         my $tig        = $self->_sortRefs( @{ $self->{unsortedTerm} } );
         my $posContext = pop @$tig;
         unless ( $posContext || $self->{langSetDefined} ) {
-            error
-"Term $id is lacking an element necessary for TBX-Basic.\n\tTo make it valid for human use only, add one of:\n\t\ta definition (at the language level)\n\t\tan example of use in context (at the term level).\n\tTo make it valid for human or machine processing, add its part of speech (at the term level).\nSee line @{[$. - 1]}.\n\n";
+            _error
+"Term $id (see line @{[$. - 1]}) is lacking an element necessary for TBX-Basic.\n\tTo make it valid for human use only, add one of:\n\t\ta definition (at the language level)\n\t\tan example of use in context (at the term level).\n\tTo make it valid for human or machine processing, add its part of speech (at the term level).";
         }
         $self->_printRow($tig);
         undef $self->{term};
@@ -621,15 +639,15 @@ sub _parseRow {
 
     # verify essential completeness
     unless ( $row{'ID'} && $row{'DatCat'} && $row{'Value'} ) {
-        error "Incomplete row in line $., skipped.\n\n";
+        _error "Incomplete row in line $., skipped.";
         return;
     }
 
     # verify well-formed ID and extract its semantics
     if ( $row{'ID'} =~ /^[Cc] *(\d{3}) *($langCode)? *(\d*)$/ ) {
         if ( $3 && !$2 ) {
-            error
-"Bad ID '$row{'ID'}' (no language section) in line $., skipped.\n\n";
+            _error
+"Bad ID '$row{'ID'}' (no language section) in line $., skipped.";
             return;
         }
         $row{'Concept'} = $1;
@@ -650,8 +668,8 @@ sub _parseRow {
         $row{'ID'} = 'A';
     }
     else {
-        error
-"Bad ID '$row{'ID'}' (format not recognized) in line $., skipped.\n\n";
+        _error
+"Bad ID '$row{'ID'}' (format not recognized) in line $., skipped.";
         return;
     }
 
@@ -660,12 +678,12 @@ sub _parseRow {
 
         # the datcat is recognized
         unless ( $row{'DatCat'} eq $correct ) {
-            error "Correcting '$row{'DatCat'}' to '$correct' in line $..\n\n";
+            _error "Correcting '$row{'DatCat'}' to '$correct' in line $..";
             $row{'DatCat'} = $correct;
         }
     }
     else {
-        error "Unknown data category '$row{'DatCat'}' in line $., skipped.\n\n";
+        _error "Unknown data category '$row{'DatCat'}' in line $., skipped.";
         return;
     }
 
@@ -681,14 +699,14 @@ sub _parseRow {
         {
             # the value is a recognized termLocation
             unless ( $row{'Value'} eq $correct ) {
-                error
-                  "Correcting '$row{'Value'}' to '$correct' in line $..\n\n";
+                _error
+                  "Correcting '$row{'Value'}' to '$correct' in line $..";
                 $row{'Value'} = $correct;
             }
         }
         else {
-            error
-"Unfamiliar termLocation '$row{'Value'}' in line $.. If this is a location in a user interface, consult the suggested values in the TBX spec.\n\n";
+            _error
+"Unfamiliar termLocation '$row{'Value'}' in line $.. If this is a location in a user interface, consult the suggested values in the TBX spec.";
 
             # but DON'T return undef, because this should not
             # lead to skipping the row, unlike other picklists
@@ -701,14 +719,14 @@ sub _parseRow {
         # if one exists
         if ( my $correct = $caps{ lc( $row{'Value'} ) } ) {
             unless ( $row{'Value'} eq $correct ) {
-                error
-                  "Correcting '$row{'Value'}' to '$correct' in line $..\n\n";
+                _error
+                  "Correcting '$row{'Value'}' to '$correct' in line $..";
                 $row{'Value'} = $correct;
             }
         }
         else {
-            error
-"'$row{'Value'}' not a valid $row{'DatCat'} in line $., skipped. See picklist for valid values.\n\n";
+            _error
+"'$row{'Value'}' not a valid $row{'DatCat'} in line $., skipped. See picklist for valid values.";
             return;
         }
     }    # else it's not a correctible datcat, so let it be
@@ -723,13 +741,13 @@ sub _parseRow {
             $row{$keyword}{'FieldLang'} = " xml:lang=\"\L$2\"" if $2;
         }
         else {
-            error "Can't parse additional field '$_' in line $., ignored.\n\n";
+            _error "Can't parse additional field '$_' in line $., ignored.";
         }
 
         # check if a FieldLang makes sense
         if ( $row{$keyword}{'FieldLang'} && !$allowed{$keyword}{'FieldLang'} ) {
-            error
-"Language tag makes no sense with keyword '$keyword' in line $., ignored.\n\n";
+            _error
+"Language tag makes no sense with keyword '$keyword' in line $., ignored.";
             delete $row{$keyword}{'FieldLang'};
         }
 
@@ -737,11 +755,11 @@ sub _parseRow {
         # this bit might be better done in the controller?
         # heh. Too late now.
         unless ( $allowed{ $row{'DatCat'} }{$keyword} ) {
-            error
-"Data category $row{'DatCat'} does not allow keyword '$keyword', ignored in line $..\n\n";
+            _error
+"Data category $row{'DatCat'} does not allow keyword '$keyword', ignored in line $..";
             if ( $keyword eq 'Source' or $keyword eq 'Note' ) {
-                error
-"You may attach a source or note to an entire term entry (or a language section or concept entry) by placing it on its own line with the appropriate ID, like this: \n\t$row{ 'ID' }\t\l$keyword\t$row{ $keyword }{ 'Value' }\n\n";
+                _error
+"You may attach a source or note to an entire term entry (or a language section or concept entry) by placing it on its own line with the appropriate ID, like this: \n\t$row{ 'ID' }\t\l$keyword\t$row{ $keyword }{ 'Value' }";
             }
             delete $row{$keyword};
         }
@@ -751,36 +769,36 @@ sub _parseRow {
     if ( $row{'Date'} ) {
         if ( $row{'Date'}{'Value'} =~ /^(\d{4})-(\d{2})-(\d{2})$/ ) {
             if ( $1 eq '0000' || $2 eq '00' || $3 eq '00' ) {
-                error
-"Consider correcting: Zeroes in date '$row{'Date'}{'Value'}', line $..\n\n";
+                _error
+"Consider correcting: Zeroes in date '$row{'Date'}{'Value'}', line $..";
             }
             elsif ( $2 < 13 && $3 < 13 ) {
-                error
-"Consider double-checking: Month and day are ambiguous in '$row{'Date'}{'Value'}', line $..\n\n";
+                _error
+"Consider double-checking: Month and day are ambiguous in '$row{'Date'}{'Value'}', line $..";
             }
             elsif ( $2 > 12 ) {
-                error
-                  "Consider correcting: Month $2 is nonsense in line $..\n\n";
+                _error
+                  "Consider correcting: Month $2 is nonsense in line $..";
             }
         }
         else {
-            error
-"Date '$row{'Date'}{'Value'}' not in ISO format (yyyy-mm-dd) in line $., ignored.\n\n";
+            _error
+"Date '$row{'Date'}{'Value'}' not in ISO format (yyyy-mm-dd) in line $., ignored.";
             delete $row{'Date'};
         }
     }
 
     # check for Link where it's needed
     if ( $row{'DatCat'} eq 'transactionType' ) {
-        error
-"Consider adding information: No responsible party linked in line $..\n\n"
+        _error
+"Consider adding information: No responsible party linked in line $.."
           unless $row{'Link'};
     }
     elsif (
         $row{'DatCat'} =~ /^(?:crossReference|externalCrossReference|xGraphic)$/
         && !$row{'Link'} )
     {
-        error "$row{'DatCat'} without Link in line $., skipped.\n\n";
+        _error "$row{'DatCat'} without Link in line $., skipped.";
         return;
     }
 
@@ -791,10 +809,10 @@ sub _buildHeader {
     my ( $self, $srcRef, $destRef ) = @_;
     my $destKey;
     return unless ( $destKey = $corresp{ $srcRef->{'DatCat'} } );
-
+	# print STDOUT "$destKey\n" . Dumper ($destRef) . "\n" . Dumper ($srcRef) . "\n";
     # a validity check, not just a pointless translation
     if ( $destKey eq 'Language' and defined $destRef->{'Language'} ) {
-        error "Duplicate workingLanguage ignored in line $..\n\n";
+        _error "Duplicate workingLanguage ignored in line $..";
         return;
     }
     push @{ $destRef->{$destKey} }, $srcRef->{'Value'};
@@ -817,8 +835,8 @@ sub _printHeader {
 REQUIRED1
 
     # print termbase-wide subjects, if such there be
-    error
-"Termbase-wide subject fields are recorded in the <titleStmt> element of the TBX header.\n\n"
+    _error
+"Termbase-wide subject fields are recorded in the <titleStmt> element of the TBX header."
       if ( exists $info->{'Subject'} and scalar @{ $info->{'Subject'} } );
     my $sbj;
     print <<SUBJECT while $sbj = shift @{ $info->{'Subject'} };
@@ -862,7 +880,8 @@ REQUIRED3
 sub _sortRefs {
     my ( $self, @rows ) = @_;
     my ( @termGrp, @auxInfo, $term, $pos, $context, $ID );
-    $ID = $_[0]->{'ID'};
+    $ID = $_[0]->{'ID'} || '[unknown term]';
+	# print STDOUT Dumper $_[0];
     for my $row (@rows) {
         my $datCat = $row->{'DatCat'};
         if ( $datCat eq 'term' ) {
@@ -880,17 +899,20 @@ sub _sortRefs {
             }
         }
         else {
-            error
-              "Data category '$datCat' is not allowed at the term level.\n\n"
+            _error
+              "Data category '$datCat' is not allowed at the term level."
               ;                         # other code should prevent this anyway
         }
     }
-    error
-"There is no term row for '$ID', although other data categories describe such a term. See line @{[$. - 1]}.\n\n"
+	
+    _error
+"There is no term row for '$ID', although other data categories describe such a term. See line @{[$. - 1]}."
       unless $term;
-    error
-"Term $ID lacks a partOfSpeech row. This TBX file may not be machine processed. See line @{[$. - 1]}.\n\n"
+	  
+    _error
+"Term $ID lacks a partOfSpeech row. This TBX file may not be machine processed. See line @{[$. - 1]}."
       unless $pos;
+	  
     unshift @auxInfo, \@termGrp;
     push @auxInfo, ( $pos || $context );    # 1 or undef
     return \@auxInfo;
