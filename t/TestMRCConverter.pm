@@ -31,15 +31,23 @@ sub convert {
 	close $log_handle;
 	
 	#remove datetime stamps from log
-	$log =~ s/\] \[.+\]/\]/gm;
+	$log = remove_datetime(undef, $log);
 	
 	#return output TBX and log
 	return [$tbx, $log];
 }
 
+sub remove_datetime {
+	my ($text) = @_;
+	defined $text 
+		or return;
+	$text =~ s/\] \[[^\]]+\]/\]/gm;
+	return $text;
+}
+
 # fix version numbers and chomp logs
 # so that they can be matched properly
-sub fix_log {
+sub fix_version {
 	my ($log) = @_;
 	
 	chomp $log;

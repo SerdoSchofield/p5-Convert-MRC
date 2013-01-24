@@ -201,14 +201,19 @@ sub batch {
         #set output, error and input files
         my $outTBX  = "$mrc$suffix.tbx";
         my $outWarn = "$mrc$suffix.log";
-        print STDERR "See $outTBX and $outWarn for output.\n";
+        # print STDERR "See $outTBX and $outWarn for output.\n";
         $self->input_fh($mrc);
         $self->log_fh($outWarn);
         $self->tbx_fh($outTBX);
 
         #convert the input file, sending output to appropriate file handles
         $self->convert;
-        print STDERR "Finished processing $mrc.\n";
+		# close these so that they are written. Don't bother closing input, which may have been 
+		# opened before this method.
+		close $self->log_fh();
+        close $self->tbx_fh();
+		
+        # print STDERR "Finished processing $mrc.\n";
     }
 }
 
@@ -357,6 +362,10 @@ sub convert {
                 if ( exists $row->{'Term'}
                     && $row->{'Term'} ne $self->{term} )
                 {
+					if(not exists $row->{'LangSet'}
+						or not exists $row->{'Concept'}){
+						print STDOUT 'hello!';
+					}
                     $self->_closeTerm();
 
                     # open term
@@ -369,7 +378,10 @@ sub convert {
 
             # verify legal insertion
             my $level;    # determine where we are from row ID
-            if ( defined $row->{'Term'} ) { $level = 'Term' }
+            if ( defined $row->{'Term'} ) 
+			{
+				$level = 'Term';
+			}
             elsif ( defined $row->{'LangSet'} ) {
                 if ( defined $self->{term} ) {
                     _error "LangSet-level row out of order in line $., skipped.";
@@ -588,7 +600,11 @@ sub _finish_processing {
 sub _closeTerm {
     my ($self) = @_;
     if ( defined $self->{term} ) {
-        my $id         = ${ $self->{unsortedTerm} }[0]->{'ID'};
+		# print STDOUT Dumper $self->{unsortedTerm} ;
+		# print STDOUT Dumper $self;
+        my $id         = ${ $self->{unsortedTerm} }[0]->{'ID'} ||
+			#necessary for error reporting; $ID might be undef
+			'C' . $self->{concept} . $self->{langSet} . $self->{term};
         my $tig        = $self->_sortRefs( @{ $self->{unsortedTerm} } );
         my $posContext = pop @$tig;
         unless ( $posContext || $self->{langSetDefined} ) {
@@ -880,10 +896,21 @@ REQUIRED3
 sub _sortRefs {
     my ( $self, @rows ) = @_;
     my ( @termGrp, @auxInfo, $term, $pos, $context, $ID );
-    $ID = $_[0]->{'ID'} || '[unknown term]';
+	
+	
+    $ID = $_[0]->{'ID'}
+		#this is necessary for printing diagnostics when something has gone wrong ($ID would be undef otherwise)
+		|| 'C' . $self->{concept} . $self->{langSet} . $self->{term};
 	# print STDOUT Dumper $_[0];
+	# print STDOUT Dumper \@rows;
+	# print STDOUT Dumper $self;
     for my $row (@rows) {
-        my $datCat = $row->{'DatCat'};
+		if(not defined $row->{'DatCat'}){
+			#don't bother printing error; it is also caught somewhere else.
+			# _error "Unknown data category at term level";
+			next;
+		}
+        my $datCat = $row->{'DatCat'} || '[unknown]';
         if ( $datCat eq 'term' ) {
             unshift @termGrp, $row;    # stick it on the front
             $term = 1;
@@ -905,13 +932,15 @@ sub _sortRefs {
         }
     }
 	
-    _error
+	if(not $term){
+		_error
 "There is no term row for '$ID', although other data categories describe such a term. See line @{[$. - 1]}."
-      unless $term;
-	  
-    _error
+    }
+	
+	if(not $pos){
+		_error
 "Term $ID lacks a partOfSpeech row. This TBX file may not be machine processed. See line @{[$. - 1]}."
-      unless $pos;
+    }
 	  
     unshift @auxInfo, \@termGrp;
     push @auxInfo, ( $pos || $context );    # 1 or undef
@@ -925,7 +954,10 @@ sub _printRow {
                                             # print as appropriate
         my $datCat;
         $datCat = $item->{'DatCat'};
-
+		if(not defined $datCat){
+			_error "Data category undefined. Cannot print row at $.";
+			return;
+		}
         # sort by datcat
         if ( $datCat eq 'term' ) {
             print "<term>$item->{'Value'}</term>\n";
@@ -994,7 +1026,7 @@ sub _printRow {
         else {     # everything else is easy
             my $meta;
             $meta = $meta{$datCat}
-              or die "_printRow() can't print a $datCat ";    # shouldn't happen
+              or die "_printRow() can't print a $datCat ";    # shouldn't happen # but it can!
             print "<${meta}Grp>\n";
             print
 "\t<$meta type=\"$datCat\"$item->{'RowLang'}>$item->{'Value'}</$meta>\n";
