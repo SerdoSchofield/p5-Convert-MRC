@@ -37,6 +37,12 @@ sub convert {
 	return [$tbx, $log];
 }
 
+sub no_tbx {
+	my ($tbx_log) = @_;
+	
+	return [ undef, $tbx_log->[1] ];
+}
+
 sub remove_datetime {
 	my ($text) = @_;
 	defined $text 

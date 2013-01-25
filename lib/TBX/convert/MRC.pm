@@ -364,10 +364,6 @@ sub convert {
                 if ( exists $row->{'Term'}
                     && $row->{'Term'} ne $self->{term} )
                 {
-					if(not exists $row->{'LangSet'}
-						or not exists $row->{'Concept'}){
-						print STDOUT 'hello!';
-					}
                     $self->_closeTerm();
 
                     # open term
@@ -476,7 +472,7 @@ sub convert {
         # this code only runs if the A C R order is broken
         if ( $segment eq 'back' && !exists $row->{'Party'} ) {
             _error
-"Don't know what to do with line $., processing stopped. Your file may be misordered. The line reads:\n";
+"Don't know what to do with line $., processing stopped. The rows in your file are not in proper A C R order.";
             $aborted = 1;
             last;
         }
@@ -538,7 +534,7 @@ sub convert {
 
     if ( not $started ) {
         my $err =
-"$ARGV does not contain a line beginning with =MRCTermTable. You must include such a line to switch on the TBX converter -- all preceding material is ignored.";
+"The input MRC is missing a line beginning with =MRCTermTable. You must include such a line to switch on the TBX converter -- all preceding material is ignored.";
 
         carp $err;
         _error $err;
