@@ -208,10 +208,12 @@ sub batch {
 
         #convert the input file, sending output to appropriate file handles
         $self->convert;
-		# close these so that they are written. Don't bother closing input, which may have been 
-		# opened before this method.
+		# close these so that they are written.
 		close $self->log_fh();
         close $self->tbx_fh();
+		
+		# close input too, since it's been exhausted.
+		close $self->input_fh();
 		
         # print STDERR "Finished processing $mrc.\n";
     }
@@ -572,12 +574,8 @@ sub _finish_processing {
     $self->_log( Log::Message::Simple->stack_as_string() );
     Log::Message::Simple->flush();
 	
-	#then close 
     select $select;
-	# close $self->tbx_fh;
-	# close $self->input_fh;
-    # close $self->log_fh;
-	
+	# user's responsibility to close the various filehandles
 }
 
 =head1 SEE ALSO
