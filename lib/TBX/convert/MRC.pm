@@ -279,15 +279,19 @@ sub convert {
     my ( @idsUsed, @linksMade );    # track these
     my $started = 0;    # flag for MRCTermTable line (start-of-processing)
     my $aborted = 0;    # flag for early end-of-processing
-
     # process the file
     while ( readline( $self->{input_fh} ) ) {
 
         # eliminate a (totally superfluous) byte-order mark
         s/^(?:\xef\xbb\xbf|\x{feff})// if $. == 1;
-        next unless /^=MRCtermTable/i .. 0;    # start processing
-        $started = 1;
-        next if /^=MRCtermTable/i;             # but let that one go
+		
+		#check for =MRCtermTable at the beginning of the file to begin processing
+        if (/^=MRCtermTable/i){    # start processing
+			$started = 1;
+			next;
+		}
+		next unless $started;
+		
         next if (/^\s*$/);                     # if it's only whitespace
         my $row;
         next unless $row = $self->_parseRow($_);
@@ -531,7 +535,6 @@ sub convert {
     }
 
     # closing formalities
-
     if ( not $started ) {
         my $err =
 "The input MRC is missing a line beginning with =MRCTermTable. You must include such a line to switch on the TBX converter -- all preceding material is ignored.";
@@ -565,6 +568,15 @@ sub convert {
 
 sub _finish_processing {
 	my ($self, $select) = @_;
+	
+	#clear all processing data
+	delete $self->{concept};
+	delete $self->{langSet};
+	delete $self->{term};
+	delete $self->{party};
+	delete $self->{unsortedTerm};
+	delete $self->{party};
+	delete $self->{langSetDefined};
 	
     #print all messages to the object's log
     $self->_log( Log::Message::Simple->stack_as_string() );
@@ -752,6 +764,7 @@ sub _parseRow {
         }
         else {
             _error "Can't parse additional field '$_' in line $., ignored.";
+			next;
         }
 
         # check if a FieldLang makes sense
