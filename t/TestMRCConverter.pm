@@ -5,10 +5,16 @@ use TBX::convert::MRC;
 package t::TestMRCConverter::Filter;
 use Test::Base::Filter -base;
 use TBX::convert::MRC;
+use Data::Dumper;
 # use Data::Dumper;
 
 my $converter = TBX::convert::MRC->new();
 my $version = $TBX::convert::MRC::VERSION;
+
+sub print_self {
+	print Dumper $converter;
+	return @_;
+}
 
 sub convert {
 	my ($mrc) = @_;
