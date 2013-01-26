@@ -962,6 +962,7 @@ sub _printRow {
         my $datCat;
         $datCat = $item->{'DatCat'};
 		if(not defined $datCat){
+			#should never happen; rows with undefined datcats are skipped.
 			_error "Data category undefined. Cannot print row at $.";
 			return;
 		}
