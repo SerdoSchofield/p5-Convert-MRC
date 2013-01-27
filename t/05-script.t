@@ -1,4 +1,4 @@
-#test that batch conversion runs correctly
+#test that the batch converter script runs
 
 use t::TestMRCConverter;
 use FindBin qw($Bin);
@@ -40,9 +40,15 @@ for my $block ( blocks ){
 	push @batch_files, catfile($data_dir, $block->input);
 }
 
-#run MRC files to TBX
-my $converter = TBX::convert::MRC->new;
-$converter->batch(@batch_files);
+#run script on MRC files
+@batch_files;
+my $HAS_BLIB = 0;
+my $script_path = catfile( $FindBin::Bin, updir(), qw(scripts mrc2tbx) );
+my $include = $HAS_BLIB && '-Mblib' || '-I"' . catdir($FindBin::Bin, updir(), 'lib') . '"';
+my $args = join ' ', map {qq["$_"]} @batch_files;
+my $command = qq{"$^X"  $include "$script_path" $args};
+print $command;
+`$command`;
 
 #check existence and content of output files
 for my $block ( blocks ){
