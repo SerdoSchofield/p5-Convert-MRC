@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Test::More tests => 2;
 
-use_ok( 'MRC::Convert', 'use' );
-is( ref( MRC::Convert->new ) => 'MRC::Convert', 'class' );
+use_ok( 'Convert::MRC', 'use' );
+is( ref( Convert::MRC->new ) => 'Convert::MRC', 'class' );
 
 __END__

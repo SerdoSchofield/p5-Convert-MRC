@@ -1,6 +1,6 @@
-package MRC::Convert::Variables;
+package Convert::MRC::Variables;
 
-# ABSTRACT: GLOBAL CONSTANTS USED BY MRC::Convert
+# ABSTRACT: GLOBAL CONSTANTS USED BY Convert::MRC
 # VERSION
 use strict;
 use warnings;
