@@ -6,6 +6,12 @@ plan tests => 2 * blocks;
 use Test::XML;
 use Test::LongString;
 
+filters {
+	input	=> 'convert',
+	log		=> 'fix_version',
+	tbx		=> 'fix_version',
+};
+
 #loop through all blocks, convert the input, and compare with the output
 for my $block ( blocks('input') ){
 	my ($tbx, $log) = @{ $block->input };
@@ -26,7 +32,7 @@ __DATA__
 
 === Term level categories
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a book about animals
@@ -47,7 +53,7 @@ C003en1	administrativestatus	admittedTerm-admn-sts
 C003en1	NOTE	This is a silly note
 C003en1	SOURCE	Chicken book
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Correcting 'TERM' to 'term' in line 5.
 [ERROR] Correcting 'partofspeech' to 'partOfSpeech' in line 6.
@@ -72,7 +78,7 @@ C003en1	SOURCE	Chicken book
 	C003
 	C003en1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -129,7 +135,7 @@ C003en1	SOURCE	Chicken book
 
 === LangSet level categories
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a book about animals
@@ -145,7 +151,7 @@ C003en	DEFINITION	A squaky chicken
 C003en1	term	chicken
 C003en1	partofspeech	noun
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Correcting 'transactiontype' to 'transactionType' in line 5.
 [ERROR] Correcting 'crossreference' to 'crossReference' in line 6.
@@ -164,7 +170,7 @@ C003en1	partofspeech	noun
 	C003
 	C003en1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -216,7 +222,7 @@ C003en1	partofspeech	noun
 
 === Concept level categories
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a book about animals
@@ -232,7 +238,7 @@ C003	SOURCE	Chicken book
 C003en1	term	chicken
 C003en1	partOfSpeech	noun
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Correcting 'SUBJECTFIELD' to 'subjectField' in line 4.
 [ERROR] Correcting 'XGRAPHIC' to 'xGraphic' in line 5.
@@ -252,7 +258,7 @@ C003en1	partOfSpeech	noun
 	C003
 	C003en1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -302,7 +308,7 @@ C003en1	partOfSpeech	noun
 
 === transactionType picklist
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a book about animals
@@ -314,7 +320,7 @@ C003en2	term	chicken
 C003en2	partOfSpeech	noun
 C003en2	transactionType	MODIFICATION	Responsibility: Jack	Link: R003
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Correcting 'ORIGINATION' to 'origination' in line 7.
 [ERROR] Correcting 'MODIFICATION' to 'modification' in line 10.
@@ -326,7 +332,7 @@ C003en2	transactionType	MODIFICATION	Responsibility: Jack	Link: R003
 	C003en1
 	C003en2
 	
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -377,7 +383,7 @@ C003en2	transactionType	MODIFICATION	Responsibility: Jack	Link: R003
 
 === termType picklist
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a book about animals
@@ -401,7 +407,7 @@ C003en6	term	chicken
 C003en6	partOfSpeech	noun
 C003en6	termType	PHRASE
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Correcting 'FULLFORM' to 'fullForm' in line 7.
 [ERROR] Correcting 'ACRONYM' to 'acronym' in line 10.
@@ -418,7 +424,7 @@ C003en6	termType	PHRASE
 	C003en5
 	C003en6
 	
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -483,7 +489,7 @@ C003en6	termType	PHRASE
 
 === grammaticalGender picklist
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a book about animals
@@ -501,7 +507,7 @@ C003en4	term	chicken
 C003en4	partOfSpeech	noun
 C003en4	grammaticalGender	OTHER
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Correcting 'MASCULINE' to 'masculine' in line 7.
 [ERROR] Correcting 'FEMININE' to 'feminine' in line 10.
@@ -514,7 +520,7 @@ C003en4	grammaticalGender	OTHER
 	C003en3
 	C003en4
 	
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -569,7 +575,7 @@ C003en4	grammaticalGender	OTHER
 
 === administrativeStatus picklist
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a book about animals
@@ -587,7 +593,7 @@ C003en4	term	chicken
 C003en4	partOfSpeech	noun
 C003en4	administrativeStatus	supersededterm-admn-sts
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Correcting 'preferredterm-admn-sts' to 'preferredTerm-admn-sts' in line 7.
 [ERROR] Correcting 'admittedterm-admn-sts' to 'admittedTerm-admn-sts' in line 10.
@@ -600,7 +606,7 @@ C003en4	administrativeStatus	supersededterm-admn-sts
 	C003en3
 	C003en4
 	
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -656,7 +662,7 @@ C003en4	administrativeStatus	supersededterm-admn-sts
 
 === partOfSpeech picklist
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a book about animals
@@ -676,7 +682,7 @@ C003en6	partOfSpeech	OTHER
 C003en7	term	chicken
 C003en7	partOfSpeech	unknown
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Correcting 'NOUN' to 'noun' in line 6.
 [ERROR] Correcting 'VERB' to 'verb' in line 8.
@@ -701,7 +707,7 @@ C003en7	partOfSpeech	unknown
 	C003en6
 	C003en7
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">

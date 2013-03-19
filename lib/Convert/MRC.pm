@@ -17,7 +17,7 @@ use Log::Message::Simple qw (:STD);
 #import global constants used in processing
 use Convert::MRC::Variables;
 
-our $VERSION = 3.4;
+# our $VERSION = 3.4;
 # ABSTRACT: CONVERT MRC TO TBX-BASIC
 # VERSION
 
@@ -30,6 +30,10 @@ our @origARGV = @ARGV;
 
 #use batch() if called as a script
 __PACKAGE__->new->batch(@ARGV) unless caller;
+
+sub _version {
+	return (eval '$VERSION') || '??';
+}
 
 =head1 NAME
 
@@ -250,6 +254,7 @@ sub convert {
     my $select = select $self->{tbx_fh};
 
     # informative header for the log file
+	my $VERSION = _version();
     msg("MRC2TBX converter version $VERSION");
 
     #if called as a script, output this
@@ -885,7 +890,7 @@ REQUIRED1
     print <<SUBJECT while $sbj = shift @{ $info->{'Subject'} };
 <note>entire termbase concerns subject: $sbj</note>
 SUBJECT
-
+	my $VERSION = _version();
     print <<REQUIRED2;
 </titleStmt>
 <sourceDesc>

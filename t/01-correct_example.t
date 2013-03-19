@@ -30,14 +30,14 @@ my $allData = get_data_section;
 chomp $allData->{log};
 
 #make sure version's correct
-$allData->{log} =~ s/\[version\]/$Convert::MRC::VERSION/;
+$allData->{log} =~ s/\[version\]/Convert::MRC->_version/e;
 
 #remove datetime stamps before comparing
 $log =~ s/\[MSG\] \[.+\] /\[MSG\] /gm;
 is_string( $log, $allData->{log}, 'correct log output' );
 
 #make sure version's correct
-$allData->{tbx} =~ s/\[version\]/$Convert::MRC::VERSION/;
+$allData->{tbx} =~ s/\[version\]/Convert::MRC->_version/e;
 
 # print $allData->{tbx};
 is_xml( $tbx, $allData->{tbx}, 'correct tbx output' );

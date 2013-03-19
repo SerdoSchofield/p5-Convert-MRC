@@ -9,7 +9,6 @@ use Data::Dumper;
 # use Data::Dumper;
 
 my $converter = Convert::MRC->new();
-my $version = $Convert::MRC::VERSION;
 
 sub print_self {
 	print Dumper $converter;
@@ -64,20 +63,9 @@ sub fix_version {
 	
 	chomp $log;
 	#fix version
-	$log =~ s/\[version\]/$Convert::MRC::VERSION/;
+	$log =~ s/\[version\]/Convert::MRC->_version/e;
 	
 	return $log;
 }
-
-
-#an argument like LHS,stateImpCond,attrValueTests,0 will return
-# $root->{LHS}->{stateImpCond}->{attrValueTests}->[0]
-# sub dive {
-	# my ($root) = shift @_;
-	# my @path = split ',', Test::Base::Filter::current_arguments();
-	# use Data::Diver qw (Dive);
-	# return Dive($root,@path);
-# }
-
 
 1;

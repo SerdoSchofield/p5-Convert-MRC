@@ -6,6 +6,11 @@ plan tests => 2 * blocks;
 use Test::XML;
 use Test::LongString;
 
+filters {
+	log => 'fix_version',
+	tbx => 'fix_version',
+	input => 'convert'
+};
 #loop through all blocks, convert the input, and compare with the output
 for my $block ( blocks('input') ){
 	my ($tbx, $log) = @{ $block->input };
@@ -25,16 +30,16 @@ for my $block ( blocks('input') ){
 __DATA__
 === No IDs in file
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] The file contained no concepts or parties.
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -62,18 +67,18 @@ A	sourceDesc	a restaurant menu in English and French
 
 === No IDs in file, and bad header
 
---- input convert no_tbx
+--- input no_tbx
 =MRCtermTable
 A	sourceDesc	a restaurant menu in English and French
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] TBX header could not be completed because a required A-row is missing or malformed.
 [ERROR] The file contained no concepts or parties.
 
 === subjectField in header
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
@@ -82,14 +87,14 @@ C005	subjectField	Restaurant Menus
 C005en1	term	chick peas
 C005en1	partOfSpeech	noun
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Termbase-wide subject fields are recorded in the <titleStmt> element of the TBX header.
 [MSG] File includes IDs:
 	C005
 	C005en1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -129,7 +134,7 @@ C005en1	partOfSpeech	noun
 
 === missing links
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
@@ -143,7 +148,7 @@ C005	externalCrossReference	see chicken website
 C005en1	term	chick peas
 C005en1	partOfSpeech	noun
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Consider adding information: No responsible party linked in line 5.
 [ERROR] Consider adding information: No responsible party linked in line 7.
@@ -156,7 +161,7 @@ C005en1	partOfSpeech	noun
 	C005
 	C005en1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -209,7 +214,7 @@ C005en1	partOfSpeech	noun
 === date formats
 One good format, the rest bad
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
@@ -224,7 +229,7 @@ C005	transactionType	origination	Responsibility: John	Link: R007	Date: 2007-1-21
 C005en1	term	chick peas
 C005en1	partOfSpeech	noun
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Consider correcting: Zeroes in date '0000-01-31', line 6.
 [ERROR] Consider correcting: Zeroes in date '2007-00-31', line 7.
@@ -244,7 +249,7 @@ C005en1	partOfSpeech	noun
 	C005
 	C005en1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -319,7 +324,7 @@ C005en1	partOfSpeech	noun
 === disallowed keywords
 Also checks that keywords are allowed in correct places
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
@@ -333,7 +338,7 @@ C003fr1	term	poulet	Source: a cooking textbook
 C003fr1	context	pass the poulet, please	Source: I made it up	Note: hmm
 C003fr1	partOfSpeech	noun	Link: www.nouns.com
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Data category term does not allow keyword 'Source', ignored in line 10.
 [ERROR] You may attach a source or note to an entire term entry (or a language section or concept entry) by placing it on its own line with the appropriate ID, like this: 
@@ -351,7 +356,7 @@ C003fr1	partOfSpeech	noun	Link: www.nouns.com
 	C003
 	C003fr1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -408,7 +413,7 @@ C003fr1	partOfSpeech	noun	Link: www.nouns.com
 === disallowed language field
 Also checks that no errors are raised for allowed language field locations (Responsibility and Source)
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
@@ -423,7 +428,7 @@ C004fr	definition	[en] a big bird
 C004fr1	term	Big Bird
 C004fr1	partOfSpeech	noun
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Language tag makes no sense with keyword 'Link' in line 5, ignored.
 [MSG] File includes links to:
@@ -435,7 +440,7 @@ C004fr1	partOfSpeech	noun
 	C004
 	C004fr1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -498,7 +503,7 @@ C004fr1	partOfSpeech	noun
 
 === unparseable extra field
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
@@ -506,14 +511,14 @@ C003	subjectField	Restaurant Menus
 C003fr1	term	poulet
 C003fr1	partOfSpeech	noun	bad
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Can't parse additional field 'bad' in line 6, ignored.
 [MSG] File includes IDs:
 	C003
 	C003fr1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -553,7 +558,7 @@ C003fr1	partOfSpeech	noun	bad
 === unkown termLocation
 Tests that all of the suggested categories raise no errors, and the unkown does.
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
@@ -581,7 +586,7 @@ C003fr1	termLocation	userDefinedType
 C003fr1	termLocation	userdefinedtype
 C003fr1	termLocation	unknown
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Correcting 'userdefinedtype' to 'userDefinedType' in line 25.
 [ERROR] Unfamiliar termLocation 'unknown' in line 26. If this is a location in a user interface, consult the suggested values in the TBX spec.
@@ -589,7 +594,7 @@ C003fr1	termLocation	unknown
 	C003
 	C003fr1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -648,7 +653,7 @@ C003fr1	termLocation	unknown
 
 === bad ID format
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
@@ -658,14 +663,14 @@ C003fr1	term	poulet
 C003fr1	partOfSpeech	noun
 X003fr1	note	bad row id
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Bad ID 'X003fr1' (format not recognized) in line 8, skipped.
 [MSG] File includes IDs:
 	C003
 	C003fr1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -705,7 +710,7 @@ X003fr1	note	bad row id
 
 === missing language
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
@@ -714,14 +719,14 @@ C003fr1	term	poulet
 C0031	term	poulet
 C003fr1	partOfSpeech	noun
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Bad ID 'C0031' (no language section) in line 6, skipped.
 [MSG] File includes IDs:
 	C003
 	C003fr1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -760,7 +765,7 @@ C003fr1	partOfSpeech	noun
 
 === incomplete row
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
@@ -770,7 +775,7 @@ C003fr1	partOfSpeech	noun
 C003fr1	geographicalUsage	
 C003fr1	
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Incomplete row in line 7, skipped.
 [ERROR] Incomplete row in line 8, skipped.
@@ -778,7 +783,7 @@ C003fr1
 	C003
 	C003fr1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -817,21 +822,21 @@ C003fr1
 
 === no =MRCtermTable
 
---- input convert
+--- input
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
 C001	subjectField	Restaurant Menus
 C001fr1	term	poulet
 C001fr1	partOfSpeech	noun
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] The input MRC is missing a line beginning with =MRCTermTable. You must include such a line to switch on the TBX converter -- all preceding material is ignored.
 
 === No respParty type
 Also tests the code for different types of parties
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
@@ -846,7 +851,7 @@ R008	fn	Jan Jameson
 R009	fn	Chickens, Inc.
 R009	type	organization
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] At least one of your responsible parties has no type (person, organization, etc.) and has been provisionally printed as a respParty. To conform to TBX-Basic, you must list each party as either a person or an organization.
 [MSG] File includes IDs:
@@ -856,7 +861,7 @@ R009	type	organization
 	R009
 	R008
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -914,7 +919,7 @@ R009	type	organization
 
 === No respParty type (2)
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
@@ -924,7 +929,7 @@ C003fr1	partOfSpeech	noun
 R007	fn	Some Company
 R008	fn 	Some Other Company
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] At least one of your responsible parties has no type (person, organization, etc.) and has been provisionally printed as a respParty. To conform to TBX-Basic, you must list each party as either a person or an organization.
 [MSG] File includes IDs:
@@ -933,7 +938,7 @@ R008	fn 	Some Other Company
 	R007
 	R008
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -982,7 +987,7 @@ R008	fn 	Some Other Company
 	
 === A C R order incorrect
 
---- input convert no_tbx
+--- input no_tbx
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
@@ -992,13 +997,13 @@ C005	subjectField	Restaurant Menus
 C005en1	term	chick peas
 C005en1	partOfSpeech	noun
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Don't know what to do with line 6, processing stopped. The rows in your file are not in proper A C R order.
 
 === LangSet level out of order
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a book about animals
@@ -1007,14 +1012,14 @@ C003en1	term	chicken
 C003en1	partOfSpeech	noun
 C003en	note	my English is pretty good, isn't it?
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] LangSet-level row out of order in line 7, skipped.
 [MSG] File includes IDs:
 	C003
 	C003en1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -1053,7 +1058,7 @@ C003en	note	my English is pretty good, isn't it?
 
 === Concept level out of order
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a book about animals
@@ -1062,14 +1067,14 @@ C003en1	term	chicken
 C003en1	partOfSpeech	noun
 C003	note	that's a real story
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Concept-level row out of order in line 7, skipped.
 [MSG] File includes IDs:
 	C003
 	C003en1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -1108,7 +1113,7 @@ C003	note	that's a real story
 
 === Term level disallowed data category
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a book about animals
@@ -1119,7 +1124,7 @@ C003en1	definition	a squaky bird
 C003en1	term	chicken
 C003en1	partOfSpeech	noun
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Data category 'xGraphic' not allowed at the Term level in line 5, skipped.
 [ERROR] Data category 'subjectField' not allowed at the Term level in line 6, skipped.
@@ -1128,7 +1133,7 @@ C003en1	partOfSpeech	noun
 	C003
 	C003en1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -1167,7 +1172,7 @@ C003en1	partOfSpeech	noun
 
 === LangSet level disallowed data category
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a book about animals
@@ -1182,7 +1187,7 @@ C003en	termType	fullForm
 C003en	term	chicken
 C003en	administrativeStatus	admittedTerm-admn-sts
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Data category 'xGraphic' not allowed at the LangSet level in line 4, skipped.
 [ERROR] Data category 'subjectField' not allowed at the LangSet level in line 5, skipped.
@@ -1197,7 +1202,7 @@ C003en	administrativeStatus	admittedTerm-admn-sts
 [MSG] File includes IDs:
 	C003
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -1229,7 +1234,7 @@ C003en	administrativeStatus	admittedTerm-admn-sts
 
 === Concept level disallowed data category
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a book about animals
@@ -1244,7 +1249,7 @@ C003	termLocation	menuItem
 C003	termType	fullForm
 C003	term	chicken
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Data category 'administrativeStatus' not allowed at the Concept level in line 5, skipped.
 [ERROR] Data category 'context' not allowed at the Concept level in line 6, skipped.
@@ -1258,7 +1263,7 @@ C003	term	chicken
 [MSG] File includes IDs:
 	C003
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -1291,7 +1296,7 @@ C003	term	chicken
 
 === invalid header category
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
@@ -1300,14 +1305,14 @@ C003	subjectField	Restaurant Menus
 C003fr1	term	poulet
 C003fr1	partOfSpeech	noun
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Could not interpret header line 4, skipped.
 [MSG] File includes IDs:
 	C003
 	C003fr1
 	
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -1346,14 +1351,14 @@ C003fr1	partOfSpeech	noun
 
 === missing sourceDesc in header
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 C003	subjectField	Restaurant Menus
 C003fr1	term	poulet
 C003fr1	partOfSpeech	noun
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] TBX header could not be completed because a required A-row is missing or malformed.
 
@@ -1362,22 +1367,22 @@ undef
 
 === missing workingLanguage in header
 
---- input convert
+--- input
 =MRCtermTable
 A	sourceDesc	a restaurant menu in English and French
 C003	subjectField	Restaurant Menus
 C003fr1	term	poulet
 C003fr1	partOfSpeech	noun
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] TBX header could not be completed because a required A-row is missing or malformed.
 
---- tbx fix_version eval
+--- tbx eval
 undef
 
 === bad header
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	partOfSpeech	noun
@@ -1386,14 +1391,14 @@ C003	subjectField	Restaurant Menus
 C003fr1	term	poulet
 C003fr1	partOfSpeech	noun
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Could not interpret header line 3, skipped.
 [MSG] File includes IDs:
 	C003
 	C003fr1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -1432,7 +1437,7 @@ C003fr1	partOfSpeech	noun
 
 === duplicate workingLanguage entry
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	workingLanguage	fr
@@ -1441,7 +1446,7 @@ C003	subjectField	Restaurant Menus
 C003fr1	term	poulet
 C003fr1	partOfSpeech	noun
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Duplicate workingLanguage ignored in line 3.
 [ERROR] Could not interpret header line 3, skipped.
@@ -1449,7 +1454,7 @@ C003fr1	partOfSpeech	noun
 	C003
 	C003fr1
 	
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -1488,7 +1493,7 @@ C003fr1	partOfSpeech	noun
 
 === invalid value
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
@@ -1500,8 +1505,8 @@ C004en	definition	a squaky bird
 C004en1	context	The chicken pecked my eye.
 C004en1	term	chicken
 
---- log fix_version
-[MSG] MRC2TBX converter version 3.4
+--- log
+[MSG] MRC2TBX converter version [version]
 [ERROR] 'junk' not a valid partOfSpeech in line 6, skipped. See picklist for valid values.
 [ERROR] Term C003fr1 lacks a partOfSpeech row. This TBX file may not be machine processed. See line 6.
 [ERROR] Term C003fr1 (see line 6) is lacking an element necessary for TBX-Basic.
@@ -1516,7 +1521,7 @@ C004en1	term	chicken
 	C004
 	C004en1
 	
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -1526,7 +1531,7 @@ C004en1	term	chicken
 				<title>termbase from MRC file</title>
 			</titleStmt>
 			<sourceDesc>
-				<p>generated by Convert::MRC version 3.4</p>
+				<p>generated by Convert::MRC version [version]</p>
 			</sourceDesc>
 			<sourceDesc>
 				<p>a restaurant menu in English and French</p>
@@ -1571,21 +1576,21 @@ C004en1	term	chicken
 
 === missing term
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
 C005	subjectField	Restaurant Menus
 C005en1	partOfSpeech	noun
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] There is no term row for 'C005en1', although other data categories describe such a term. See line 4.
 [MSG] File includes IDs:
 	C005
 	C005en1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -1623,14 +1628,14 @@ C005en1	partOfSpeech	noun
 
 === missing partOfSpeech
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
 C003	subjectField	Restaurant Menus
 C003fr1	term	poulet
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Term C003fr1 lacks a partOfSpeech row. This TBX file may not be machine processed. See line 4.
 [ERROR] Term C003fr1 (see line 4) is lacking an element necessary for TBX-Basic.
@@ -1642,7 +1647,7 @@ C003fr1	term	poulet
 	C003
 	C003fr1
 	
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -1680,7 +1685,7 @@ C003fr1	term	poulet
 
 === incorrect category capitalization
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
@@ -1688,7 +1693,7 @@ C003	subjectfield	Restaurant Menus
 C003fr1	term	poulet
 C003fr1	partOfSpeech	NOUN
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Correcting 'subjectfield' to 'subjectField' in line 4.
 [ERROR] Correcting 'NOUN' to 'noun' in line 6.
@@ -1696,7 +1701,7 @@ C003fr1	partOfSpeech	NOUN
 	C003
 	C003fr1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
@@ -1736,7 +1741,7 @@ C003fr1	partOfSpeech	NOUN
 
 === bad category
 
---- input convert
+--- input
 =MRCtermTable
 A	workingLanguage	en
 A	sourceDesc	a restaurant menu in English and French
@@ -1745,14 +1750,14 @@ C003fr1	term	poulet
 C003fr1	POS	noun
 C003fr1	partOfSpeech	noun
 
---- log fix_version
+--- log
 [MSG] MRC2TBX converter version [version]
 [ERROR] Unknown data category 'POS' in line 6, skipped.
 [MSG] File includes IDs:
 	C003
 	C003fr1
 
---- tbx fix_version
+--- tbx
 <?xml version='1.0' encoding="UTF-8"?>
 <!DOCTYPE martif SYSTEM "TBXBasiccoreStructV02.dtd">
 <martif type="TBX-Basic-V1" xml:lang="en">
