@@ -1,15 +1,15 @@
 package t::TestMRCConverter;
 use Test::Base -Base;
-use TBX::convert::MRC;
+use MRC::Convert;
 
 package t::TestMRCConverter::Filter;
 use Test::Base::Filter -base;
-use TBX::convert::MRC;
+use MRC::Convert;
 use Data::Dumper;
 # use Data::Dumper;
 
-my $converter = TBX::convert::MRC->new();
-my $version = $TBX::convert::MRC::VERSION;
+my $converter = MRC::Convert->new();
+my $version = $MRC::Convert::VERSION;
 
 sub print_self {
 	print Dumper $converter;
@@ -64,7 +64,7 @@ sub fix_version {
 	
 	chomp $log;
 	#fix version
-	$log =~ s/\[version\]/$TBX::convert::MRC::VERSION/;
+	$log =~ s/\[version\]/$MRC::Convert::VERSION/;
 	
 	return $log;
 }

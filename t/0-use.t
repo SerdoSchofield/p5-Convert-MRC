@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Test::More tests => 2;
 
-use_ok( 'TBX::convert::MRC', 'use' );
-is( ref( TBX::convert::MRC->new ) => 'TBX::convert::MRC', 'class' );
+use_ok( 'MRC::Convert', 'use' );
+is( ref( MRC::Convert->new ) => 'MRC::Convert', 'class' );
 
 __END__

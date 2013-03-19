@@ -4,5 +4,5 @@ package mrc2tbx;
 # VERSION
 use strict;
 use warnings;
-use TBX::convert::MRC;
-TBX::convert::MRC->new->batch(@ARGV);
+use MRC::Convert;
+MRC::Convert->new->batch(@ARGV);

@@ -1,6 +1,6 @@
-package TBX::convert::MRC::Variables;
+package MRC::Convert::Variables;
 
-# ABSTRACT: GLOBAL CONSTANTS USED BY TBX::Convert::MRC
+# ABSTRACT: GLOBAL CONSTANTS USED BY MRC::Convert
 # VERSION
 use strict;
 use warnings;
