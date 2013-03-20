@@ -1,9 +1,9 @@
 package Convert::MRC::Variables;
 
-# ABSTRACT: GLOBAL CONSTANTS USED BY Convert::MRC
-# VERSION
 use strict;
 use warnings;
+# ABSTRACT: GLOBAL CONSTANTS USED BY Convert::MRC
+# VERSION
 use base 'Exporter';
 our @EXPORT = qw(
   %corresp
