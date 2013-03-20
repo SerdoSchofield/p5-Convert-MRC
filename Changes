@@ -1,0 +1,10 @@
+Changes file for Convert::MRC
+
+
+{{$NEXT}}}
+	Initial CPAN release includes extensive updates from version 3.3:
+		- extensive test suite
+		- object orientation
+		- usage of real logger, instead of simple printing
+		- mrc2tbx script
+		- minor bug fixes
