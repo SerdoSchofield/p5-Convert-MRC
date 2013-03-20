@@ -1,2 +1,3 @@
 t/data/*.tbx
 t/data/*.log 
+.build
