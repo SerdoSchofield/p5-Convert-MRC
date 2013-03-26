@@ -1,7 +1,9 @@
 Changes file for Convert::MRC
 
 
-{{$NEXT}}}
+{{$NEXT}}
+
+4.0       2013-03-26 21:21:59 UTC
 	Initial CPAN release includes extensive updates from version 3.3:
 		- extensive test suite
 		- object orientation
