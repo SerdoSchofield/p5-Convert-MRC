@@ -201,6 +201,7 @@ sub input_fh {
 }
 
 =head2 C<batch>
+
 Processes each of the input files, printing the converted TBX file to a file with the same name and the suffix ".tbx".
 Warnings are also printed to a file with the same name and the suffix ".log".
 
