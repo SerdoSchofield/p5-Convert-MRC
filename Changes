@@ -3,6 +3,9 @@ Changes file for Convert::MRC
 
 {{$NEXT}}
 
+4.02      2013-03-26 21:59:06 UTC
+	Added JSON and YAML files, with Git info
+
 4.01      2013-03-26 21:48:33 UTC
 	Minor fix to pod formatting
 
