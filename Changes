@@ -3,6 +3,9 @@ Changes file for Convert::MRC
 
 {{$NEXT}}
 
+4.01      2013-03-26 21:48:33 UTC
+	Minor fix to pod formatting
+
 4.0       2013-03-26 21:21:59 UTC
 	Initial CPAN release includes extensive updates from version 3.3:
 		- extensive test suite
