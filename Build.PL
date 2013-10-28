@@ -34,7 +34,9 @@ my %module_build_args = (
     "strict" => 0,
     "warnings" => 0
   },
-  "script_files" => [],
+  "script_files" => [
+    "scripts/mrc2tbx"
+  ],
   "test_requires" => {
     "Data::Section::Simple" => 0,
     "File::Find" => 0,

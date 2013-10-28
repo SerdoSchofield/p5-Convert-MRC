@@ -18,7 +18,9 @@ my %WriteMakefileArgs = (
     "Module::Build" => "0.3601"
   },
   "DISTNAME" => "Convert-MRC",
-  "EXE_FILES" => [],
+  "EXE_FILES" => [
+    "scripts/mrc2tbx"
+  ],
   "LICENSE" => "perl",
   "NAME" => "Convert::MRC",
   "PREREQ_PM" => {
