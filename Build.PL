@@ -35,7 +35,7 @@ my %module_build_args = (
     "warnings" => 0
   },
   "script_files" => [
-    "scripts/mrc2tbx"
+    "bin/mrc2tbx"
   ],
   "test_requires" => {
     "Data::Section::Simple" => 0,

@@ -8,10 +8,10 @@ META.json
 META.yml
 Makefile.PL
 README
+bin/mrc2tbx
 dist.ini
 lib/Convert/MRC.pm
 lib/Convert/MRC/Variables.pm
-scripts/mrc2tbx
 t/0-use.t
 t/00-compile.t
 t/000-report-versions-tiny.t

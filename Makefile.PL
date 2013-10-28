@@ -19,7 +19,7 @@ my %WriteMakefileArgs = (
   },
   "DISTNAME" => "Convert-MRC",
   "EXE_FILES" => [
-    "scripts/mrc2tbx"
+    "bin/mrc2tbx"
   ],
   "LICENSE" => "perl",
   "NAME" => "Convert::MRC",

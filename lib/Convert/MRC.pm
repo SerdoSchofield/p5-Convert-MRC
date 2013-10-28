@@ -130,6 +130,7 @@ sub input_fh {
 
 sub batch {
     my ( $self, @mrc_files ) = @_;
+    ## no critic (ProhibitOneArgSelect)
     for my $mrc (@mrc_files) {
 
         # find an appropriate name for output and warning files
@@ -170,7 +171,7 @@ sub _get_suffix {
 
 
 sub convert {
-	# no critic (ProhibitOneArgSelect)
+    ## no critic (ProhibitOneArgSelect)
     my ($self) = @_;
     my $select = select $self->{tbx_fh};
 
@@ -516,7 +517,7 @@ sub convert {
 }
 
 sub _finish_processing {
-	#no critic (ProhibitOneArgSelect)
+	## no critic (ProhibitOneArgSelect)
     my ( $self, $select ) = @_;
 
     #clear all processing data
@@ -842,7 +843,7 @@ REQUIRED3
 }
 
 # structure a term's worth of data rows for printing
-sub _sortRefs {
+sub _sortRefs {## no critic (RequireArgUnpacking)
     my ( $self, @rows ) = @_;
     my ( @termGrp, @auxInfo, $term, $pos, $context, $ID );
 
@@ -1068,38 +1069,38 @@ version 0.01
 =head2 MRC
 
 The MRC format is fully described in an article by Alan K. Melby which
-appeared in 
-L<Tradumatica|http://www.ttt.org/tbx/AKMtradumaArticle-publishedVersion.pdf>. 
+appeared in
+L<Tradumatica|http://www.ttt.org/tbx/AKMtradumaArticle-publishedVersion.pdf>.
 At an approximation, it is a file of tab-separated rows, each consisting
 of an ID, a data category, and a value
 to be stored for that category in the object with the given ID. The file
-should be sorted on its first column. If it is not, the converter may 
+should be sorted on its first column. If it is not, the converter may
 skip rows (if they are at too high a level) or end processing early
 (if the order of A-rows, C-rows, and R-rows is broken).
 
 =head2 CONVERSION TO TBX-BASIC
 
-This translator receives a file or list of files in this format and 
-emits TBX-Basic, a standard format for terminology interchange. 
-Incorrect or unusable input is skipped, with one exception, and the 
-problem is noted in a log file. The outputs generally have the same 
+This translator receives a file or list of files in this format and
+emits TBX-Basic, a standard format for terminology interchange.
+Incorrect or unusable input is skipped, with one exception, and the
+problem is noted in a log file. The outputs generally have the same
 filename as the inputs, and a suffix of .tbx and .warnings, but a number
-may be added to the filename to ensure the output filenames are unique. 
+may be added to the filename to ensure the output filenames are unique.
 
 The exception noted is this: If the user documents a party responsible
 for some change in the termbase, but does not state whether that party
 is a person or an organization, the party will be included in the TBX
-as a "respParty". This designation does not conform to the TBX-Basic 
+as a "respParty". This designation does not conform to the TBX-Basic
 standard and will need to be changed (to "respPerson" or "respOrg")
 before the file will validate. This is one of the circumstances in which
-the converter will output invalid TBX-Basic. 
+the converter will output invalid TBX-Basic.
 
 The other circumstance is that a file might not contain a definition,
 a part of speech, or a context sentence for some term, or might not
 contain a term itself. The converter detects these and warns about them,
 but there is no way it could fix them. It does not detect or warn about
 concepts containing no langSet or langSets containing no term, but these
-are also invalid. 
+are also invalid.
 
 =head1 NAME
 

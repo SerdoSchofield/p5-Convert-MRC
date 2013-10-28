@@ -30,22 +30,22 @@ for my $block ( blocks ){
 	unlink $file if -e $file;
 	$file = catfile($data_dir, $block->tbx_name);
 	unlink $file if -e $file;
-	
-	# create files as specified; 
+
+	# create files as specified;
 	# this is used to get the batcher to find another file name (it never overwrites existing files)
 	if($block->create_file){
 		for($block->create_file){
 			touch catfile($data_dir, $_);
 		}
 	}
-	
+
 	#input is name of the file to read in batch processing
 	push @batch_files, catfile($data_dir, $block->input);
 }
 
 #run script on MRC files
 my $HAS_BLIB = 0;
-my $script_path = catfile( $FindBin::Bin, updir(), qw(scripts mrc2tbx) );
+my $script_path = catfile( $FindBin::Bin, updir(), qw(bin mrc2tbx) );
 my $include = $HAS_BLIB && '-Mblib' || '-I"' . catdir($FindBin::Bin, updir(), 'lib') . '"';
 my $args = join ' ', map {qq["$_"]} @batch_files;
 my $command = qq{"$^X"  $include "$script_path" $args};
@@ -53,38 +53,38 @@ my $command = qq{"$^X"  $include "$script_path" $args};
 
 #check existence and content of output files
 for my $block ( blocks ){
-	
-	subtest 
+
+	subtest
 		'log file for ' . $block->input . ' written correctly' => sub {
-		
+
 		plan tests => 2;
-	
+
 		my $log_file_name = catfile($data_dir, $block->log_name);
 		ok(-e $log_file_name, $block->log_name . ' was created')
 			or return;
-		
+
 		my $log = read_file($log_file_name);
 		unlink $log_file_name;
 		$log = t::TestMRCConverter::Filter::remove_datetime(undef,$log);
 		is_string(
-			$log, $block->log,  
+			$log, $block->log,
 			"'" . $block->name . "' correct message(s) logged")
 			or print $log;
 	};
-	
-	subtest 
+
+	subtest
 		'TBX file for ' . $block->input . ' written correctly' => sub {
-		
+
 		plan tests => 2;
-	
+
 		my $tbx_file_name = catfile($data_dir, $block->tbx_name);
 		ok(-e $tbx_file_name, $block->tbx_name . ' was created')
 			or return;
-		
+
 		my $tbx = read_file($tbx_file_name);
 		unlink $tbx_file_name;
 		is_xml(
-			$tbx, $block->tbx, 
+			$tbx, $block->tbx,
 			"'" . $block->name . "' correct TBX output");
 	};
 }
