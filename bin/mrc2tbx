@@ -11,7 +11,7 @@ package mrc2tbx;
 use strict;
 use warnings;
 # ABSTRACT: CONVERT MRC FILES TO TBX-BASIC
-our $VERSION = '0.01'; # VERSION
+our $VERSION = '4.03'; # VERSION
 use Convert::MRC;
 Convert::MRC->new->batch(@ARGV);
 
@@ -25,7 +25,7 @@ mrc2tbx - CONVERT MRC FILES TO TBX-BASIC
 
 =head1 VERSION
 
-version 0.01
+version 4.03
 
 =head1 AUTHOR
 

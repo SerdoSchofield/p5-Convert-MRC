@@ -32,10 +32,10 @@ no_index:
 provides:
   Convert::MRC:
     file: lib/Convert/MRC.pm
-    version: 0.01
+    version: 4.03
   Convert::MRC::Variables:
     file: lib/Convert/MRC/Variables.pm
-    version: 0.01
+    version: 4.03
 requires:
   Carp: 0
   Data::Dumper: 0
@@ -51,7 +51,7 @@ resources:
   homepage: https://github.com/byutrg/p5-Convert-MRC
   license: http://dev.perl.org/licenses/
   repository: https://github.com/byutrg/p5-Convert-MRC.git
-version: 0.01
+version: 4.03
 x_BuiltWith:
   modules:
     Carp: 1.26
