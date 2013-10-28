@@ -1,0 +1,18 @@
+Changes file for Convert::MRC
+
+
+0.01      2013-10-28 21:33:07 UTC
+
+4.02      2013-03-26 21:59:06 UTC
+	Added JSON and YAML files, with Git info
+
+4.01      2013-03-26 21:48:33 UTC
+	Minor fix to pod formatting
+
+4.0       2013-03-26 21:21:59 UTC
+	Initial CPAN release includes extensive updates from version 3.3:
+		- extensive test suite
+		- object orientation
+		- usage of real logger, instead of simple printing
+		- mrc2tbx script
+		- minor bug fixes
