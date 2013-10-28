@@ -2,7 +2,8 @@ Changes file for Convert::MRC
 
 
 {{$NEXT}}
-
+    Updated repository information
+    Added annotations to quiet perlcritic
 4.02      2013-03-26 21:59:06 UTC
 	Added JSON and YAML files, with Git info
 
