@@ -2,9 +2,12 @@
 
 use t::TestMRCConverter;
 use FindBin qw($Bin);
-use File::Spec::Functions;
+use Path::Tiny;
+use Capture::Tiny 'capture';
+use Data::Dumper;
+use Module::Path 'module_path';
 use Test::More 0.96;
-plan tests => 2 * blocks;
+plan tests => 1 + 2 * blocks;
 use Test::LongString;
 use Test::XML;
 use File::Slurp;
@@ -17,7 +20,7 @@ filters {
 };
 
 #convert files in the data directory
-my $data_dir = catdir( $Bin, 'data');
+my $data_dir = path( $Bin, 'data');
 
 my @batch_files;
 
@@ -26,30 +29,39 @@ for my $block ( blocks ){
 
 	#make sure that the log and tbx files you expect to create
 	#don't already exist; batch() won't overwrite existing files
-	my $file = catfile($data_dir, $block->log_name);
-	unlink $file if -e $file;
-	$file = catfile($data_dir, $block->tbx_name);
-	unlink $file if -e $file;
+	my $file = path($data_dir, $block->log_name);
+	$file->remove if $file->exists;
+	$file = path($data_dir, $block->tbx_name);
+	$file->remove if $file->exists;
 
 	# create files as specified;
 	# this is used to get the batcher to find another file name (it never overwrites existing files)
 	if($block->create_file){
 		for($block->create_file){
-			touch catfile($data_dir, $_);
+			path($data_dir, $_)->touch;
 		}
 	}
 
 	#input is name of the file to read in batch processing
-	push @batch_files, catfile($data_dir, $block->input);
+	push @batch_files, path($data_dir, $block->input);
 }
 
 #run script on MRC files
-my $HAS_BLIB = 0;
-my $script_path = catfile( $FindBin::Bin, updir(), qw(bin mrc2tbx) );
-my $include = $HAS_BLIB && '-Mblib' || '-I"' . catdir($FindBin::Bin, updir(), 'lib') . '"';
-my $args = join ' ', map {qq["$_"]} @batch_files;
-my $command = qq{"$^X"  $include "$script_path" $args};
-`$command`;
+#run script on MRC files; could be running in blib or dev
+my $module_path = path(module_path('Convert::MRC'));
+my $HAS_BLIB =
+	$module_path 	#MRC.pm
+		->parent						#Convert
+		->parent						#lib
+		->parent						#blib
+		->basename eq 'blib';
+my $script_path = $HAS_BLIB && path(qw(blib script mrc2tbx)) ||
+	path(path($FindBin::Bin)->parent, 'bin', 'mrc2tbx');
+my $include = $HAS_BLIB && '-Mblib' ||
+	'-I'. path(path($FindBin::Bin)->parent, 'lib');
+my @command = ($^X, $include, $script_path, @batch_files);
+my ($stdout, $stderr) = capture {system(@command)};
+is($stderr, '', 'no errors reported from script');
 
 #check existence and content of output files
 for my $block ( blocks ){
@@ -59,7 +71,7 @@ for my $block ( blocks ){
 
 		plan tests => 2;
 
-		my $log_file_name = catfile($data_dir, $block->log_name);
+		my $log_file_name = path($data_dir, $block->log_name);
 		ok(-e $log_file_name, $block->log_name . ' was created')
 			or return;
 
@@ -77,8 +89,8 @@ for my $block ( blocks ){
 
 		plan tests => 2;
 
-		my $tbx_file_name = catfile($data_dir, $block->tbx_name);
-		ok(-e $tbx_file_name, $block->tbx_name . ' was created')
+		my $tbx_file_name = path($data_dir, $block->tbx_name);
+		ok($tbx_file_name->exists, $block->tbx_name . ' was created')
 			or return;
 
 		my $tbx = read_file($tbx_file_name);
@@ -92,8 +104,8 @@ for my $block ( blocks ){
 # clean up test files afterwards
 for my $block ( blocks ){
 	for($block->create_file){
-		my $file = catfile($data_dir, $_);
-		unlink $file if -e $file;
+		my $file = path($data_dir, $_);
+		$file->remove if $file->exists;
 	}
 }
 
