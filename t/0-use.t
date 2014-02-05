@@ -2,9 +2,9 @@
 
 use strict;
 use warnings;
-use Test::More tests => 2;
+use Test::More tests => 1;
 
-use_ok( 'Convert::MRC', 'use' );
+use Convert::MRC;
 is( ref( Convert::MRC->new ) => 'Convert::MRC', 'class' );
 
 __END__
